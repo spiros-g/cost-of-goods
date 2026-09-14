@@ -20,7 +20,7 @@ final class COGS_Service {
 		$product = wc_get_product( $product_id );
 
 		if ( ! $product instanceof WC_Product ) {
-			throw new RuntimeException( __( 'Product not found.', 'cogs-studio-for-woocommerce' ) );
+			throw new RuntimeException( esc_html__( 'Product not found.', 'cogs-studio-for-woocommerce' ) );
 		}
 
 		return $product;
@@ -57,18 +57,18 @@ final class COGS_Service {
 
 	public function set_cost( int $product_id, ?float $cost, string $source = 'manual', ?string $variation_mode = null ): WC_Product {
 		if ( ! $this->compatibility->cogs_enabled() ) {
-			throw new RuntimeException( __( 'WooCommerce Cost of Goods Sold must be enabled first.', 'cogs-studio-for-woocommerce' ) );
+			throw new RuntimeException( esc_html__( 'WooCommerce Cost of Goods Sold must be enabled first.', 'cogs-studio-for-woocommerce' ) );
 		}
 
 		$product = $this->get_product( $product_id );
 
 		if ( ! method_exists( $product, 'set_cogs_value' ) ) {
-			throw new RuntimeException( __( 'This WooCommerce version does not expose the native COGS API.', 'cogs-studio-for-woocommerce' ) );
+			throw new RuntimeException( esc_html__( 'This WooCommerce version does not expose the native COGS API.', 'cogs-studio-for-woocommerce' ) );
 		}
 
 		if ( method_exists( $product, 'set_cogs_value_is_additive' ) && null !== $variation_mode ) {
 			if ( ! in_array( $variation_mode, array( 'inherit', 'override', 'additive' ), true ) ) {
-				throw new RuntimeException( __( 'Invalid variation COGS mode.', 'cogs-studio-for-woocommerce' ) );
+				throw new RuntimeException( esc_html__( 'Invalid variation COGS mode.', 'cogs-studio-for-woocommerce' ) );
 			}
 
 			if ( 'inherit' === $variation_mode ) {
