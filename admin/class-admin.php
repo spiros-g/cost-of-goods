@@ -13,21 +13,18 @@ final class Admin {
 	private COGS_Service $cogs;
 	private Profit_Calculator $profit;
 	private Cost_History $history;
-	private Migrator $migrator;
 	private string $hook_suffix = '';
 
 	public function __construct(
 		Compatibility $compatibility,
 		COGS_Service $cogs,
 		Profit_Calculator $profit,
-		Cost_History $history,
-		Migrator $migrator
+		Cost_History $history
 	) {
 		$this->compatibility = $compatibility;
 		$this->cogs          = $cogs;
 		$this->profit        = $profit;
 		$this->history       = $history;
-		$this->migrator      = $migrator;
 	}
 
 	public function register(): void {
@@ -42,7 +39,6 @@ final class Admin {
 		add_action( 'wp_ajax_cogs_studio_orders', array( $this, 'ajax_orders' ) );
 		add_action( 'wp_ajax_cogs_studio_history', array( $this, 'ajax_history' ) );
 		add_action( 'wp_ajax_cogs_studio_system', array( $this, 'ajax_system' ) );
-		add_action( 'wp_ajax_cogs_studio_migrate', array( $this, 'ajax_migrate' ) );
 	}
 
 	public function register_menu(): void {
@@ -171,14 +167,10 @@ final class Admin {
 		}
 	}
 
-	private function money( float $value ): string {
-		return wp_strip_all_tags( wc_price( $value ) );
-	}
-
 	public function ajax_dashboard(): void {
 		$this->guard_ajax();
 
-		$cached = get_transient( 'cogs_studio_dashboard_v2' );
+		$cached = get_transient( Dashboard_Cache::TRANSIENT_KEY );
 		if ( is_array( $cached ) ) {
 			wp_send_json_success( $cached );
 		}
@@ -193,7 +185,7 @@ final class Admin {
 			'status'      => $this->compatibility->status(),
 		);
 
-		set_transient( 'cogs_studio_dashboard_v2', $data, 10 * MINUTE_IN_SECONDS );
+		set_transient( Dashboard_Cache::TRANSIENT_KEY, $data, 10 * MINUTE_IN_SECONDS );
 		wp_send_json_success( $data );
 	}
 
@@ -215,7 +207,7 @@ final class Admin {
 					'fields'                 => 'ids',
 					'orderby'                => 'ID',
 					'order'                  => 'ASC',
-					'no_found_rows'          => false,
+					'no_found_rows'          => true,
 					'update_post_meta_cache' => false,
 					'update_post_term_cache' => false,
 				)
@@ -237,8 +229,9 @@ final class Admin {
 				++$tracked;
 			}
 
+			$has_more = count( $query->posts ) === 200;
 			++$page;
-		} while ( $page <= (int) $query->max_num_pages );
+		} while ( $has_more );
 
 		return array(
 			'units'        => $total_units,
@@ -433,11 +426,14 @@ final class Admin {
 
 		$page = max( 1, absint( $_POST['page'] ?? 1 ) );
 
+		$statuses = array_values( array_unique( array_merge( wc_get_is_paid_statuses(), array( 'refunded' ) ) ) );
+
 		$result = wc_get_orders(
 			array(
 				'limit'    => 25,
 				'page'     => $page,
 				'paginate' => true,
+				'status'   => $statuses,
 				'orderby'  => 'date',
 				'order'    => 'DESC',
 			)
@@ -504,27 +500,9 @@ final class Admin {
 
 		wp_send_json_success(
 			array(
-				'plugin_version'         => COGS_STUDIO_VERSION,
-				'status'                 => $this->compatibility->status(),
-				'legacy_candidates'      => $this->migrator->candidate_count(),
-				'migration_completed_at' => (string) get_option( 'cogs_studio_legacy_migration_completed_at', '' ),
+				'plugin_version' => COGS_STUDIO_VERSION,
+				'status'         => $this->compatibility->status(),
 			)
 		);
-	}
-
-	public function ajax_migrate(): void {
-		$this->guard_ajax();
-
-		if ( ! $this->compatibility->cogs_enabled() ) {
-			wp_send_json_error( array( 'message' => __( 'Enable WooCommerce COGS before migration.', 'cogs-studio-for-woocommerce' ) ), 400 );
-		}
-
-		$page = max( 1, absint( $_POST['page'] ?? 1 ) );
-
-		try {
-			wp_send_json_success( $this->migrator->migrate_batch( $page, 50 ) );
-		} catch ( \Throwable $e ) {
-			wp_send_json_error( array( 'message' => $e->getMessage() ), 500 );
-		}
 	}
 }
