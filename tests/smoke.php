@@ -154,8 +154,23 @@ $order->calculate_cogs_total_value();
 $order->set_status( 'processing' );
 $order->save();
 
-$order = wc_get_order( $order->get_id() );
-cogs_studio_smoke_assert( abs( $order->get_cogs_total_value() - 80.0 ) < 0.0001, 'Order COGS snapshot should equal 80.' );
+$order      = wc_get_order( $order->get_id() );
+$order_items = $order->get_items( 'line_item' );
+$test_item   = reset( $order_items );
+$test_product = $test_item ? $test_item->get_product() : false;
+$order_cogs  = (float) $order->get_cogs_total_value();
+$item_cogs   = $test_item && method_exists( $test_item, 'get_cogs_value' ) ? (float) $test_item->get_cogs_value() : -1.0;
+$product_cogs = $test_product && method_exists( $test_product, 'get_cogs_total_value' ) ? (float) $test_product->get_cogs_total_value() : -1.0;
+
+cogs_studio_smoke_assert(
+	abs( $order_cogs - 80.0 ) < 0.0001,
+	sprintf(
+		'Order COGS snapshot should equal 80. Actual order=%s item=%s product=%s.',
+		$order_cogs,
+		$item_cogs,
+		$product_cogs
+	)
+);
 
 $order_snapshots   = new COGS_Studio\Order_COGS_Snapshot();
 $profit_calculator = new COGS_Studio\Profit_Calculator( $service, $order_snapshots );
