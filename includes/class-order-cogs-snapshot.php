@@ -27,6 +27,11 @@ final class Order_COGS_Snapshot {
 			return;
 		}
 
+		$eligible_statuses = array_values( array_unique( array_merge( wc_get_is_paid_statuses(), array( 'refunded' ) ) ) );
+		if ( ! in_array( $order->get_status(), $eligible_statuses, true ) ) {
+			return;
+		}
+
 		$this->snapshot_order( $order );
 	}
 
