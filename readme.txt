@@ -32,4 +32,4 @@ WooCommerce 10.3 or newer is required and the WooCommerce Cost of Goods Sold fea
 * Rebuilt around native WooCommerce COGS.
 * Added product cost manager and profitability dashboard.
 * Added order profitability and stock valuation.
-* Added cost history and safe legacy migration.
+* Added cost history.
