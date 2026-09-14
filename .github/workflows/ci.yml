@@ -49,3 +49,57 @@ jobs:
           name: cogs-studio-for-woocommerce-v2.0.0
           path: dist/cogs-studio-for-woocommerce-v2.0.0.zip
           if-no-files-found: error
+
+  runtime-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        woocommerce: ['10.3.0', 'latest']
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: wp-cli
+      - name: Install WordPress
+        run: |
+          mkdir -p /tmp/cogs-studio-wp
+          cd /tmp/cogs-studio-wp
+          wp core download --quiet
+          wp config create --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --skip-check
+          wp core install --url=http://localhost --title="COGS Studio CI" --admin_user=admin --admin_password=password --admin_email=ci@example.com --skip-email
+      - name: Install WooCommerce
+        run: |
+          cd /tmp/cogs-studio-wp
+          if [ "${{ matrix.woocommerce }}" = "latest" ]; then
+            wp plugin install woocommerce --activate
+          else
+            wp plugin install woocommerce --version="${{ matrix.woocommerce }}" --activate
+          fi
+          wp option update woocommerce_feature_cost_of_goods_sold_enabled yes
+      - name: Install COGS Studio
+        run: |
+          cd /tmp/cogs-studio-wp
+          mkdir -p wp-content/plugins/cogs-studio-for-woocommerce
+          rsync -a "$GITHUB_WORKSPACE/" wp-content/plugins/cogs-studio-for-woocommerce/ \
+            --exclude '.git' \
+            --exclude 'dist'
+          wp plugin activate cogs-studio-for-woocommerce
+      - name: Run COGS runtime smoke test
+        run: |
+          cd /tmp/cogs-studio-wp
+          wp eval-file wp-content/plugins/cogs-studio-for-woocommerce/tests/smoke.php
