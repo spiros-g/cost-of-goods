@@ -739,6 +739,8 @@ final class Admin {
 	}
 
 	private function csv_safe_cell( string $value ): string {
+		$value = preg_replace( '/[\r\n]+/', ' ', $value );
+		$value = is_string( $value ) ? $value : '';
 		return preg_match( '/^[=+\-@]/', $value ) ? "'" . $value : $value;
 	}
 
@@ -904,7 +906,7 @@ final class Admin {
 		$from = '' !== $date_from ? $this->parse_date_input( $date_from, false ) : null;
 		$to   = '' !== $date_to ? $this->parse_date_input( $date_to, true ) : null;
 
-		if ( '' !== $date_from && ! $from || '' !== $date_to && ! $to || $from && $to && $from > $to ) {
+		if ( ( '' !== $date_from && ! $from ) || ( '' !== $date_to && ! $to ) || ( $from && $to && $from > $to ) ) {
 			wp_send_json_error( array( 'message' => __( 'Choose a valid order date range.', 'cogs-studio-for-woocommerce' ) ), 400 );
 		}
 
