@@ -219,21 +219,21 @@
             panel.innerHTML = `
                 <div class="cogs-studio-settings-grid">
                     <article class="cogs-studio-card">
-                        <h2>Legacy migration</h2>
-                        <p>Migrate values from the old <code>cog_cost</code> meta into WooCommerce native COGS. Any already-defined native COGS value — including an explicit zero on a variation — is preserved. Legacy meta is kept as a rollback safety net.</p>
-                        <p><strong>Legacy candidates:</strong> ${Number(data.legacy_candidates || 0)}</p>
-                        <p><strong>Last completed:</strong> ${data.migration_completed_at ? esc(data.migration_completed_at) : 'Never'}</p>
-                        <button type="button" class="button button-primary" data-run-migration ${status.cogs_enabled ? '' : 'disabled'}>Run safe migration</button>
-                        <div class="cogs-studio-migration-status" data-migration-status></div>
-                    </article>
-                    <article class="cogs-studio-card">
                         <h2>System</h2>
                         <p><strong>COGS Studio:</strong> v${esc(data.plugin_version)}</p>
+                        <p><strong>WordPress:</strong> ${esc(status.wordpress_version)}</p>
+                        <p><strong>PHP:</strong> ${esc(status.php_version)}</p>
                         <p><strong>WooCommerce:</strong> ${status.wc_version ? esc(status.wc_version) : 'Not active'}</p>
                         <p><strong>Minimum WooCommerce:</strong> ${esc(status.min_wc_version)}</p>
+                        <p><strong>Tested through WooCommerce:</strong> ${esc(status.tested_wc_version)}</p>
                         <p><strong>Native COGS:</strong> ${status.cogs_enabled ? 'Enabled' : 'Disabled'}</p>
                         <p><strong>Source of truth:</strong> WooCommerce native Cost of Goods Sold API.</p>
                         <p><strong>Order compatibility:</strong> HPOS declared compatible.</p>
+                    </article>
+                    <article class="cogs-studio-card">
+                        <h2>Data model</h2>
+                        <p>Product costs and order cost snapshots are stored by WooCommerce core. COGS Studio stores only its cost-change audit history and cached dashboard aggregates.</p>
+                        <p>No duplicate custom product COGS field is maintained by this plugin.</p>
                     </article>
                 </div>`;
         } catch (error) {
@@ -325,34 +325,6 @@
             return;
         }
 
-        const migration = event.target.closest('[data-run-migration]');
-        if (migration) {
-            const status = root.querySelector('[data-migration-status]');
-            migration.disabled = true;
-            let page = 1;
-            let totals = { processed: 0, migrated: 0, skipped: 0, errors: 0 };
-            try {
-                while (true) {
-                    const data = await request('cogs_studio_migrate', { page });
-                    totals.processed += Number(data.processed || 0);
-                    totals.migrated += Number(data.migrated || 0);
-                    totals.skipped += Number(data.skipped || 0);
-                    totals.errors += Number(data.errors || 0);
-                    status.textContent = `Processed ${totals.processed} · Migrated ${totals.migrated} · Skipped ${totals.skipped} · Errors ${totals.errors}`;
-                    if (!data.has_more) break;
-                    page += 1;
-                }
-                status.textContent += ` · ${COGSStudio.i18n.migrationDone}`;
-                loaded.delete('dashboard');
-                loaded.delete('products');
-                loaded.delete('history');
-                loaded.delete('settings');
-            } catch (error) {
-                status.innerHTML = errorHtml(error);
-            } finally {
-                migration.disabled = false;
-            }
-        }
     });
 
     root.addEventListener('keydown', async (event) => {
