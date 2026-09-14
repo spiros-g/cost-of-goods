@@ -197,7 +197,7 @@
                     <td><span class="cogs-studio-badge">${esc(row.source)}</span></td>
                 </tr>`).join('');
             panel.innerHTML = `
-                <div class="cogs-studio-section-heading"><div><h2>Cost History</h2><p>Native COGS changes from COGS Studio, WooCommerce admin, REST/API, WP-CLI, and migration paths are recorded here.</p></div></div>
+                <div class="cogs-studio-section-heading"><div><h2>Cost History</h2><p>Native COGS changes from COGS Studio, WooCommerce admin, REST/API, WP-CLI, and other WooCommerce CRUD paths are recorded here.</p></div></div>
                 <div class="cogs-studio-table-scroll">
                     <table class="widefat striped cogs-studio-table">
                         <thead><tr><th>Date</th><th>Product</th><th>Old cost</th><th>New cost</th><th>User</th><th>Source</th></tr></thead>
