@@ -368,71 +368,185 @@ final class Admin {
 		$this->guard_ajax();
 		$this->guard_cogs_enabled();
 
-		$page   = max( 1, absint( $_POST['page'] ?? 1 ) );
-		$search = sanitize_text_field( wp_unslash( $_POST['search'] ?? '' ) );
+		$page         = max( 1, absint( $_POST['page'] ?? 1 ) );
+		$search       = sanitize_text_field( wp_unslash( $_POST['search'] ?? '' ) );
+		$category     = absint( $_POST['category'] ?? 0 );
+		$type         = sanitize_key( wp_unslash( $_POST['type'] ?? '' ) );
+		$stock_status = sanitize_key( wp_unslash( $_POST['stock_status'] ?? '' ) );
+		$cogs_state   = sanitize_key( wp_unslash( $_POST['cogs_state'] ?? '' ) );
+		$margin_raw   = sanitize_text_field( wp_unslash( $_POST['margin_max'] ?? '' ) );
+		$margin_max   = '' === $margin_raw ? null : max( 0.0, (float) wc_format_decimal( $margin_raw, 2 ) );
 
-		$args = array(
-			'post_type'              => array( 'product', 'product_variation' ),
-			'post_status'            => array( 'publish', 'private', 'draft' ),
-			'posts_per_page'         => 25,
-			'paged'                  => $page,
-			'orderby'                => 'title',
-			'order'                  => 'ASC',
-			'no_found_rows'          => false,
-			'update_post_meta_cache' => true,
-			'update_post_term_cache' => false,
+		$filters = array(
+			'search'       => $search,
+			'category'     => $category,
+			'type'         => $type,
+			'stock_status' => $stock_status,
+			'cogs_state'   => in_array( $cogs_state, array( 'defined', 'undefined' ), true ) ? $cogs_state : '',
+			'margin_max'   => $margin_max,
 		);
 
-		if ( '' !== $search ) {
-			$sku_id = wc_get_product_id_by_sku( $search );
-			if ( $sku_id > 0 ) {
-				$args['post__in'] = array( $sku_id );
-			} else {
-				$args['s'] = $search;
+		$all_rows    = $this->filtered_product_rows( $filters );
+		$per_page    = 25;
+		$total       = count( $all_rows );
+		$total_pages = max( 1, (int) ceil( $total / $per_page ) );
+		$page        = min( $page, $total_pages );
+		$rows        = array_slice( $all_rows, ( $page - 1 ) * $per_page, $per_page );
+
+		$categories = array();
+		$terms      = get_terms(
+			array(
+				'taxonomy'   => 'product_cat',
+				'hide_empty' => false,
+				'orderby'    => 'name',
+				'order'      => 'ASC',
+			)
+		);
+		if ( ! is_wp_error( $terms ) ) {
+			foreach ( $terms as $term ) {
+				$categories[] = array(
+					'id'   => (int) $term->term_id,
+					'name' => (string) $term->name,
+				);
 			}
 		}
 
-		$query = new WP_Query( $args );
-		$rows  = array();
-
-		foreach ( $query->posts as $post ) {
-			$product = wc_get_product( $post->ID );
-			if ( ! $product instanceof WC_Product ) {
-				continue;
-			}
-
-
-			$metrics   = $this->profit->product_metrics( $product );
-			$nominal   = $this->cogs->nominal_cost( $product );
-			$parent    = $product->get_parent_id();
-			$cost_mode = $this->cogs->variation_mode( $product );
-
-			$rows[] = array(
-				'id'           => $product->get_id(),
-				'name'         => $product->get_name(),
-				'sku'          => $product->get_sku(),
-				'type'         => $product->get_type(),
-				'parent_id'    => $parent,
-				'price'        => $metrics['price'],
-				'nominal_cost' => $nominal,
-				'cost_mode'    => $cost_mode,
-				'is_variation' => 'simple' !== $cost_mode,
-				'cost'         => $metrics['cost'],
-				'profit'       => $metrics['profit'],
-				'margin'       => $metrics['margin'],
-				'stock'        => $product->managing_stock() ? $product->get_stock_quantity() : null,
-				'stock_status' => $product->get_stock_status(),
-				'edit_url'     => get_edit_post_link( $product->get_id(), 'raw' ),
-			);
-		}
+		$types              = wc_get_product_types();
+		$types['variation'] = __( 'Variation', 'cogs-studio-for-woocommerce' );
 
 		wp_send_json_success(
 			array(
-				'rows'        => $rows,
-				'page'        => $page,
-				'total_pages' => (int) $query->max_num_pages,
-				'total'       => (int) $query->found_posts,
+				'rows'           => $rows,
+				'page'           => $page,
+				'total_pages'    => $total_pages,
+				'total'          => $total,
+				'categories'     => $categories,
+				'types'          => $types,
+				'stock_statuses' => wc_get_product_stock_status_options(),
 			)
+		);
+	}
+
+	private function filtered_product_rows( array $filters ): array {
+		$rows      = array();
+		$scan_page = 1;
+
+		do {
+			$args = array(
+				'post_type'              => array( 'product', 'product_variation' ),
+				'post_status'            => array( 'publish', 'private', 'draft' ),
+				'posts_per_page'         => 200,
+				'paged'                  => $scan_page,
+				'fields'                 => 'ids',
+				'orderby'                => 'title',
+				'order'                  => 'ASC',
+				'no_found_rows'          => true,
+				'update_post_meta_cache' => true,
+				'update_post_term_cache' => false,
+			);
+
+			if ( '' !== $filters['search'] ) {
+				$sku_id = wc_get_product_id_by_sku( $filters['search'] );
+				if ( $sku_id > 0 ) {
+					$args['post__in'] = array( $sku_id );
+				} else {
+					$args['s'] = $filters['search'];
+				}
+			}
+
+			$query = new WP_Query( $args );
+
+			foreach ( $query->posts as $product_id ) {
+				$product = wc_get_product( $product_id );
+				if ( ! $product instanceof WC_Product || ! $this->product_matches_filters( $product, $filters ) ) {
+					continue;
+				}
+
+				$rows[] = $this->product_row( $product );
+			}
+
+			$has_more = count( $query->posts ) === 200;
+			++$scan_page;
+		} while ( $has_more );
+
+		return $rows;
+	}
+
+	private function product_matches_filters( WC_Product $product, array $filters ): bool {
+		if ( $filters['category'] > 0 ) {
+			$taxonomy_product_id = $product->get_parent_id() ?: $product->get_id();
+			if ( ! has_term( $filters['category'], 'product_cat', $taxonomy_product_id ) ) {
+				return false;
+			}
+		}
+
+		if ( '' !== $filters['type'] && $product->get_type() !== $filters['type'] ) {
+			return false;
+		}
+
+		if ( '' !== $filters['stock_status'] && $product->get_stock_status() !== $filters['stock_status'] ) {
+			return false;
+		}
+
+		$defined = $this->product_has_defined_cogs( $product );
+		if ( 'defined' === $filters['cogs_state'] && ! $defined ) {
+			return false;
+		}
+		if ( 'undefined' === $filters['cogs_state'] && $defined ) {
+			return false;
+		}
+
+		if ( null !== $filters['margin_max'] ) {
+			$metrics = $this->profit->product_metrics( $product );
+			if ( (float) $metrics['margin'] > (float) $filters['margin_max'] ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	private function product_has_defined_cogs( WC_Product $product ): bool {
+		if ( null !== $this->cogs->nominal_cost( $product ) ) {
+			return true;
+		}
+
+		if ( 'inherit' !== $this->cogs->variation_mode( $product ) ) {
+			return false;
+		}
+
+		$parent_id = $product->get_parent_id();
+		if ( $parent_id <= 0 ) {
+			return false;
+		}
+
+		$parent = wc_get_product( $parent_id );
+		return $parent instanceof WC_Product && null !== $this->cogs->nominal_cost( $parent );
+	}
+
+	private function product_row( WC_Product $product ): array {
+		$metrics   = $this->profit->product_metrics( $product );
+		$nominal   = $this->cogs->nominal_cost( $product );
+		$parent    = $product->get_parent_id();
+		$cost_mode = $this->cogs->variation_mode( $product );
+
+		return array(
+			'id'           => $product->get_id(),
+			'name'         => $product->get_name(),
+			'sku'          => $product->get_sku(),
+			'type'         => $product->get_type(),
+			'parent_id'    => $parent,
+			'price'        => $metrics['price'],
+			'nominal_cost' => $nominal,
+			'cost_mode'    => $cost_mode,
+			'is_variation' => 'simple' !== $cost_mode,
+			'cogs_defined' => $this->product_has_defined_cogs( $product ),
+			'cost'         => $metrics['cost'],
+			'profit'       => $metrics['profit'],
+			'margin'       => $metrics['margin'],
+			'stock'        => $product->managing_stock() ? $product->get_stock_quantity() : null,
+			'stock_status' => $product->get_stock_status(),
+			'edit_url'     => get_edit_post_link( $product->get_id(), 'raw' ),
 		);
 	}
 
