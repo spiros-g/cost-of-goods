@@ -10,13 +10,13 @@ final class Cost_History {
 		return $wpdb->prefix . 'cogs_studio_history';
 	}
 
-	public function log( int $product_id, ?float $old_cost, ?float $new_cost, string $source = 'manual' ): void {
+	public function log( int $product_id, ?float $old_cost, ?float $new_cost, string $source = 'manual', bool $force = false ): void {
 		global $wpdb;
 
 		$old_normalized = null === $old_cost ? null : round( $old_cost, 6 );
 		$new_normalized = null === $new_cost ? null : round( $new_cost, 6 );
 
-		if ( $old_normalized === $new_normalized ) {
+		if ( ! $force && $old_normalized === $new_normalized ) {
 			return;
 		}
 
