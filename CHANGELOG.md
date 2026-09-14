@@ -9,5 +9,8 @@
 - Added inventory valuation metrics.
 - Added cost history table.
 - Added safe migration from legacy cog_cost meta.
+- Added native variation COGS modes: inherit parent, override, and add to parent.
+- Preserve explicit zero COGS values on variations during migration.
+- Added live system/migration status and JavaScript syntax CI.
 - Added HPOS compatibility declaration.
 - Added CI PHP syntax checks.
