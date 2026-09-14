@@ -90,6 +90,17 @@
         }
     }
 
+    function costModeControl(row) {
+        if (!row.is_variation) return '';
+
+        return `
+            <select data-cost-mode aria-label="Variation COGS mode">
+                <option value="inherit" ${row.cost_mode === 'inherit' ? 'selected' : ''}>Inherit parent</option>
+                <option value="override" ${row.cost_mode === 'override' ? 'selected' : ''}>Override</option>
+                <option value="additive" ${row.cost_mode === 'additive' ? 'selected' : ''}>Add to parent</option>
+            </select>`;
+    }
+
     async function loadProducts(page = 1) {
         const panel = panels.get('products');
         const currentSearch = panel.querySelector('[name="cogs-search"]')?.value || '';
@@ -117,7 +128,8 @@
                     <td><span class="cogs-studio-badge">${esc(row.type)}</span></td>
                     <td>${money(row.price)}</td>
                     <td class="cogs-studio-cost-editor">
-                        <input type="number" min="0" step="0.000001" value="${row.nominal_cost === null ? '' : esc(row.nominal_cost)}" data-cost-input />
+                        ${costModeControl(row)}
+                        <input type="number" min="0" step="0.000001" value="${row.nominal_cost === null ? '' : esc(row.nominal_cost)}" data-cost-input ${row.cost_mode === 'inherit' ? 'disabled' : ''} />
                         <button type="button" class="button" data-save-cost>${esc(COGSStudio.i18n.save)}</button>
                     </td>
                     <td data-effective-cost>${money(row.cost)}</td>
@@ -197,23 +209,36 @@
         }
     }
 
-    function loadSettings() {
+    async function loadSettings() {
         const panel = panels.get('settings');
-        panel.innerHTML = `
-            <div class="cogs-studio-settings-grid">
-                <article class="cogs-studio-card">
-                    <h2>Legacy migration</h2>
-                    <p>Migrate values from the old <code>cog_cost</code> meta into WooCommerce native COGS. Existing native non-zero costs are never overwritten and legacy meta is kept as a rollback safety net.</p>
-                    <button type="button" class="button button-primary" data-run-migration>Run safe migration</button>
-                    <div class="cogs-studio-migration-status" data-migration-status></div>
-                </article>
-                <article class="cogs-studio-card">
-                    <h2>Architecture</h2>
-                    <p><strong>Source of truth:</strong> WooCommerce native Cost of Goods Sold API.</p>
-                    <p><strong>Order compatibility:</strong> HPOS declared compatible.</p>
-                    <p><strong>History:</strong> COGS Studio records its own edits in a dedicated table.</p>
-                </article>
-            </div>`;
+        panel.innerHTML = '<div class="cogs-studio-loading">Loading system status…</div>';
+
+        try {
+            const data = await request('cogs_studio_system');
+            const status = data.status;
+            panel.innerHTML = `
+                <div class="cogs-studio-settings-grid">
+                    <article class="cogs-studio-card">
+                        <h2>Legacy migration</h2>
+                        <p>Migrate values from the old <code>cog_cost</code> meta into WooCommerce native COGS. Any already-defined native COGS value — including an explicit zero on a variation — is preserved. Legacy meta is kept as a rollback safety net.</p>
+                        <p><strong>Legacy candidates:</strong> ${Number(data.legacy_candidates || 0)}</p>
+                        <p><strong>Last completed:</strong> ${data.migration_completed_at ? esc(data.migration_completed_at) : 'Never'}</p>
+                        <button type="button" class="button button-primary" data-run-migration ${status.cogs_enabled ? '' : 'disabled'}>Run safe migration</button>
+                        <div class="cogs-studio-migration-status" data-migration-status></div>
+                    </article>
+                    <article class="cogs-studio-card">
+                        <h2>System</h2>
+                        <p><strong>COGS Studio:</strong> v${esc(data.plugin_version)}</p>
+                        <p><strong>WooCommerce:</strong> ${status.wc_version ? esc(status.wc_version) : 'Not active'}</p>
+                        <p><strong>Minimum WooCommerce:</strong> ${esc(status.min_wc_version)}</p>
+                        <p><strong>Native COGS:</strong> ${status.cogs_enabled ? 'Enabled' : 'Disabled'}</p>
+                        <p><strong>Source of truth:</strong> WooCommerce native Cost of Goods Sold API.</p>
+                        <p><strong>Order compatibility:</strong> HPOS declared compatible.</p>
+                    </article>
+                </div>`;
+        } catch (error) {
+            panel.innerHTML = errorHtml(error);
+        }
     }
 
     async function activateTab(tab) {
@@ -229,7 +254,7 @@
         if (tab === 'products') await loadProducts();
         if (tab === 'orders') await loadOrders();
         if (tab === 'history') await loadHistory();
-        if (tab === 'settings') loadSettings();
+        if (tab === 'settings') await loadSettings();
     }
 
     root.addEventListener('click', async (event) => {
@@ -258,17 +283,24 @@
         if (save) {
             const row = save.closest('[data-product-row]');
             const input = row.querySelector('[data-cost-input]');
+            const mode = row.querySelector('[data-cost-mode]')?.value || '';
             save.disabled = true;
             save.textContent = 'Saving…';
             try {
                 const data = await request('cogs_studio_save_cost', {
                     product_id: row.dataset.productRow,
                     cost: input.value,
+                    mode,
                 });
                 row.querySelector('[data-effective-cost]').textContent = money(data.cost);
                 row.querySelector('[data-profit]').textContent = money(data.profit);
                 row.querySelector('[data-margin]').textContent = percent(data.margin);
                 input.value = data.nominal_cost === null ? '' : data.nominal_cost;
+                const modeSelect = row.querySelector('[data-cost-mode]');
+                if (modeSelect && data.cost_mode) {
+                    modeSelect.value = data.cost_mode;
+                    input.disabled = data.cost_mode === 'inherit';
+                }
                 save.textContent = COGSStudio.i18n.saved;
                 setTimeout(() => { save.textContent = COGSStudio.i18n.save; }, 1200);
                 loaded.delete('dashboard');
@@ -278,6 +310,17 @@
                 save.textContent = COGSStudio.i18n.save;
             } finally {
                 save.disabled = false;
+            }
+            return;
+        }
+
+        const modeSelect = event.target.closest('[data-cost-mode]');
+        if (modeSelect) {
+            const row = modeSelect.closest('[data-product-row]');
+            const input = row?.querySelector('[data-cost-input]');
+            if (input) {
+                input.disabled = modeSelect.value === 'inherit';
+                if (input.disabled) input.value = '';
             }
             return;
         }
@@ -303,6 +346,7 @@
                 loaded.delete('dashboard');
                 loaded.delete('products');
                 loaded.delete('history');
+                loaded.delete('settings');
             } catch (error) {
                 status.innerHTML = errorHtml(error);
             } finally {
