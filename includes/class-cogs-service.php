@@ -93,6 +93,6 @@ final class COGS_Service {
 	}
 
 	public function clear_caches(): void {
-		delete_transient( 'cogs_studio_dashboard_v2' );
+		Dashboard_Cache::clear_dashboard();
 	}
 }
