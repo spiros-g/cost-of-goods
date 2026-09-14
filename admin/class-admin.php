@@ -84,7 +84,6 @@ final class Admin {
 					'error'         => __( 'Something went wrong.', 'cogs-studio-for-woocommerce' ),
 					'saved'         => __( 'Saved', 'cogs-studio-for-woocommerce' ),
 					'save'          => __( 'Save', 'cogs-studio-for-woocommerce' ),
-					'migrationDone' => __( 'Legacy migration completed.', 'cogs-studio-for-woocommerce' ),
 				),
 			)
 		);
@@ -138,7 +137,7 @@ final class Admin {
 			<?php if ( ! $status['cogs_enabled'] ) : ?>
 				<div class="cogs-studio-inline-notice cogs-studio-inline-notice--warning">
 					<strong><?php esc_html_e( 'Native COGS is not enabled.', 'cogs-studio-for-woocommerce' ); ?></strong>
-					<?php esc_html_e( 'Enable it in WooCommerce → Settings → Advanced → Features before editing costs or running the migration.', 'cogs-studio-for-woocommerce' ); ?>
+					<?php esc_html_e( 'Enable it in WooCommerce → Settings → Advanced → Features before editing costs or viewing profitability.', 'cogs-studio-for-woocommerce' ); ?>
 				</div>
 			<?php endif; ?>
 
