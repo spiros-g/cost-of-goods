@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.1.2
+
+- Aligned the minimum WordPress requirement with WooCommerce 10.3: WordPress 6.7+.
+- Declared testing through WooCommerce 11.1.
+- Filtered profitability orders to paid/refunded statuses only.
+- Added dashboard cache invalidation for relevant product and order changes.
+- Optimized the COGS audit observer to skip unrelated product saves.
+- Added audit coverage for COGS set on a product's first save.
+- Added immutable paid-order item COGS snapshots so refund reporting remains historical even if product COGS changes later.
+- Added runtime regression tests for historical order COGS snapshots and refunds.
+- Added CI coverage for the minimum stack (WordPress 6.7 + WooCommerce 10.3 + PHP 8.1) and the current stable stack.
+- Removed the unused legacy `cog_cost` migration layer.
+- Reduced front-end overhead by loading the admin controller only in admin requests.
+
 ## 2.1.1
 
 - Fully renamed the WordPress plugin identity to COGS Studio for WooCommerce.
@@ -24,9 +38,8 @@
 - Added profitability dashboard and order profitability view.
 - Added inventory valuation metrics.
 - Added cost history table.
-- Added safe migration from legacy cog_cost meta.
 - Added native variation COGS modes: inherit parent, override, and add to parent.
-- Preserve explicit zero COGS values on variations during migration.
+- Preserved explicit zero COGS values on variations.
 - Added live system/migration status and JavaScript syntax CI.
 - Added HPOS compatibility declaration.
 - Added CI PHP syntax checks.

@@ -9,9 +9,11 @@ defined( 'ABSPATH' ) || exit;
 
 final class Profit_Calculator {
 	private COGS_Service $cogs;
+	private Order_COGS_Snapshot $order_snapshots;
 
-	public function __construct( COGS_Service $cogs ) {
-		$this->cogs = $cogs;
+	public function __construct( COGS_Service $cogs, Order_COGS_Snapshot $order_snapshots ) {
+		$this->cogs            = $cogs;
+		$this->order_snapshots = $order_snapshots;
 	}
 
 	public function product_metrics( WC_Product $product ): array {
@@ -48,7 +50,7 @@ final class Profit_Calculator {
 			$revenue   += max( 0.0, $line_total - $refunded );
 		}
 
-		$cogs = method_exists( $order, 'get_cogs_total_value' ) ? (float) $order->get_cogs_total_value() : 0.0;
+		$cogs = $this->order_snapshots->net_order_cogs( $order );
 
 		$profit = $revenue - $cogs;
 		$margin = $revenue > 0 ? ( $profit / $revenue ) * 100 : 0.0;

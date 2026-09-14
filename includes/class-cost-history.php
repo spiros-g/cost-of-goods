@@ -37,6 +37,7 @@ final class Cost_History {
 			return;
 		}
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Dedicated audit table write.
 		$wpdb->insert(
 			self::table_name(),
 			array(
@@ -49,18 +50,36 @@ final class Cost_History {
 			),
 			array( '%d', '%f', '%f', '%d', '%s', '%s' )
 		);
+
+		wp_cache_delete( 'recent_50', 'cogs_studio_history' );
+		wp_cache_delete( 'recent_100', 'cogs_studio_history' );
+		wp_cache_delete( 'recent_200', 'cogs_studio_history' );
 	}
 
 	public function recent( int $limit = 50 ): array {
 		global $wpdb;
 
-		$limit = max( 1, min( 200, $limit ) );
-		$sql   = $wpdb->prepare(
-			'SELECT id, product_id, old_cost, new_cost, user_id, source, created_at FROM ' . self::table_name() . ' ORDER BY id DESC LIMIT %d',
-			$limit
+		$limit     = max( 1, min( 200, $limit ) );
+		$cache_key = 'recent_' . $limit;
+		$cached    = wp_cache_get( $cache_key, 'cogs_studio_history' );
+
+		if ( false !== $cached ) {
+			return is_array( $cached ) ? $cached : array();
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Dedicated audit table read with object-cache layer.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT id, product_id, old_cost, new_cost, user_id, source, created_at FROM %i ORDER BY id DESC LIMIT %d',
+				self::table_name(),
+				$limit
+			),
+			ARRAY_A
 		);
 
-		$rows = $wpdb->get_results( $sql, ARRAY_A );
-		return is_array( $rows ) ? $rows : array();
+		$rows = is_array( $rows ) ? $rows : array();
+		wp_cache_set( $cache_key, $rows, 'cogs_studio_history', 60 );
+
+		return $rows;
 	}
 }

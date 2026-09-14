@@ -20,6 +20,15 @@ $compatibility = new COGS_Studio\Compatibility();
 cogs_studio_smoke_assert( $compatibility->supported_woocommerce(), 'WooCommerce version is not supported.' );
 cogs_studio_smoke_assert( $compatibility->cogs_enabled(), 'Native WooCommerce COGS is not enabled.' );
 
+$expected_hpos = getenv( 'COGS_EXPECT_HPOS' );
+if ( in_array( $expected_hpos, array( 'yes', 'no' ), true ) ) {
+	$hpos_enabled = \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
+	cogs_studio_smoke_assert(
+		( 'yes' === $expected_hpos ) === $hpos_enabled,
+		sprintf( 'Unexpected order storage mode. Expected HPOS=%s, actual=%s.', $expected_hpos, $hpos_enabled ? 'yes' : 'no' )
+	);
+}
+
 $history = new COGS_Studio\Cost_History();
 $service = new COGS_Studio\COGS_Service( $compatibility, $history );
 
@@ -86,30 +95,142 @@ $service->set_cost( $variation_id, 5.0, 'smoke', 'additive' );
 $variation = wc_get_product( $variation_id );
 cogs_studio_smoke_assert( abs( $variation->get_cogs_total_value() - 15.0 ) < 0.0001, 'Additive variation COGS should equal parent plus variation.' );
 
-$legacy_simple = new WC_Product_Simple();
-$legacy_simple->set_name( 'COGS Studio Legacy Simple' );
-$legacy_simple->set_status( 'publish' );
-$legacy_simple->set_regular_price( '25' );
-$legacy_simple_id = $legacy_simple->save();
-update_post_meta( $legacy_simple_id, COGS_Studio\Migrator::LEGACY_META_KEY, '7.25' );
-
 $zero_variation = new WC_Product_Variation();
 $zero_variation->set_parent_id( $parent_id );
 $zero_variation->set_status( 'publish' );
 $zero_variation->set_regular_price( '50' );
-$zero_variation->set_cogs_value( 0.0 );
-$zero_variation->set_cogs_value_is_additive( false );
 $zero_variation_id = $zero_variation->save();
-update_post_meta( $zero_variation_id, COGS_Studio\Migrator::LEGACY_META_KEY, '9.00' );
 
-$migrator = new COGS_Studio\Migrator( $service );
-$migrator->migrate_batch( 1, 50 );
-
-$legacy_simple = wc_get_product( $legacy_simple_id );
-cogs_studio_smoke_assert( abs( $legacy_simple->get_cogs_total_value() - 7.25 ) < 0.0001, 'Legacy simple cost was not migrated.' );
-
+$service->set_cost( $zero_variation_id, 0.0, 'smoke', 'override' );
 $zero_variation = wc_get_product( $zero_variation_id );
-cogs_studio_smoke_assert( 0.0 === (float) $zero_variation->get_cogs_value(), 'Explicit zero variation cost was overwritten.' );
-cogs_studio_smoke_assert( abs( $zero_variation->get_cogs_total_value() - 0.0 ) < 0.0001, 'Explicit zero variation should continue overriding the parent.' );
+cogs_studio_smoke_assert( 0.0 === (float) $zero_variation->get_cogs_value(), 'Explicit zero variation cost must remain defined.' );
+cogs_studio_smoke_assert( 0.0 === (float) $zero_variation->get_cogs_total_value(), 'Explicit zero variation must override the parent cost.' );
+
+// New products created with COGS in the first save must also be audited.
+$initial_cogs = new WC_Product_Simple();
+$initial_cogs->set_name( 'COGS Studio Initial COGS Audit' );
+$initial_cogs->set_status( 'publish' );
+$initial_cogs->set_regular_price( '30' );
+$initial_cogs->set_cogs_value( 8.0 );
+$initial_cogs_id = $initial_cogs->save();
+
+$initial_history = array_values(
+	array_filter(
+		$history->recent( 200 ),
+		static fn ( array $entry ): bool => (int) $entry['product_id'] === $initial_cogs_id
+	)
+);
+cogs_studio_smoke_assert( 1 === count( $initial_history ), 'Initial product COGS should create one audit entry.' );
+cogs_studio_smoke_assert( null === $initial_history[0]['old_cost'], 'Initial product COGS history should start from null.' );
+cogs_studio_smoke_assert( abs( (float) $initial_history[0]['new_cost'] - 8.0 ) < 0.0001, 'Initial product COGS audit should equal 8.' );
+
+// Unrelated product saves must not create COGS history entries.
+$external = wc_get_product( $external_id );
+$external->set_name( 'COGS Studio External Audit Renamed' );
+$external->save();
+$external_history_after_name_change = array_values(
+	array_filter(
+		$history->recent( 200 ),
+		static fn ( array $entry ): bool => (int) $entry['product_id'] === $external_id
+	)
+);
+cogs_studio_smoke_assert( 1 === count( $external_history_after_name_change ), 'Unrelated product saves must not create COGS audit entries.' );
+
+// Order COGS must be snapshotted and remain independent from later product cost changes.
+$order_product = new WC_Product_Simple();
+$order_product->set_name( 'COGS Studio Order Snapshot Product' );
+$order_product->set_status( 'publish' );
+$order_product->set_regular_price( '100' );
+$order_product_id = $order_product->save();
+$service->set_cost( $order_product_id, 40.0, 'smoke' );
+$order_product = wc_get_product( $order_product_id );
+
+$order = wc_create_order();
+$item_id = $order->add_product(
+	$order_product,
+	2,
+	array(
+		'subtotal' => 200,
+		'total'    => 200,
+	)
+);
+$order->calculate_totals( false );
+$order->save();
+
+// Persisted items are required for consistent COGS calculation across WooCommerce 10.3+.
+$order = wc_get_order( $order->get_id() );
+$order->calculate_cogs_total_value();
+$order->set_status( 'processing' );
+$order->save();
+
+$order       = wc_get_order( $order->get_id() );
+$order_items = $order->get_items( 'line_item' );
+$test_item   = reset( $order_items );
+$test_product = $test_item ? $test_item->get_product() : false;
+$item_cogs    = $test_item && method_exists( $test_item, 'get_cogs_value' ) ? (float) $test_item->get_cogs_value() : -1.0;
+$product_cogs = $test_product && method_exists( $test_product, 'get_cogs_total_value' ) ? (float) $test_product->get_cogs_total_value() : -1.0;
+
+// WooCommerce 10.3 may not persist the order-level aggregate, but the native
+// line-item COGS snapshot is present and is the cross-version reporting source.
+cogs_studio_smoke_assert(
+	abs( $item_cogs - 80.0 ) < 0.0001,
+	sprintf(
+		'Native line-item COGS snapshot should equal 80. Actual item=%s product=%s.',
+		$item_cogs,
+		$product_cogs
+	)
+);
+
+$order_snapshots   = new COGS_Studio\Order_COGS_Snapshot();
+$profit_calculator = new COGS_Studio\Profit_Calculator( $service, $order_snapshots );
+$order_metrics     = $profit_calculator->order_metrics( $order );
+cogs_studio_smoke_assert( abs( $order_metrics['revenue'] - 200.0 ) < 0.0001, 'Order product revenue should equal 200.' );
+cogs_studio_smoke_assert( abs( $order_metrics['profit'] - 120.0 ) < 0.0001, 'Order gross profit should equal 120.' );
+cogs_studio_smoke_assert( abs( $order_metrics['margin'] - 60.0 ) < 0.0001, 'Order gross margin should equal 60%.' );
+
+$service->set_cost( $order_product_id, 60.0, 'smoke' );
+$order      = wc_get_order( $order->get_id() );
+$order_item = $order->get_item( $item_id );
+cogs_studio_smoke_assert(
+	abs( (float) $order_item->get_meta( COGS_Studio\Order_COGS_Snapshot::ITEM_META_KEY, true ) - 80.0 ) < 0.0001,
+	'COGS Studio must preserve the original order-item COGS snapshot.'
+);
+
+$refund = wc_create_refund(
+	array(
+		'amount'         => 100,
+		'order_id'       => $order->get_id(),
+		'line_items'     => array(
+			$item_id => array(
+				'qty'          => 1,
+				'refund_total' => 100,
+				'refund_tax'   => array(),
+			),
+		),
+		'refund_payment' => false,
+		'restock_items'  => false,
+	)
+);
+cogs_studio_smoke_assert( ! is_wp_error( $refund ), 'WooCommerce refund creation failed.' );
+
+$order = wc_get_order( $order->get_id() );
+$order_metrics = $profit_calculator->order_metrics( $order );
+$order_item    = $order->get_item( $item_id );
+
+cogs_studio_smoke_assert(
+	abs( (float) $order_item->get_meta( COGS_Studio\Order_COGS_Snapshot::ITEM_META_KEY, true ) - 80.0 ) < 0.0001,
+	'Original order-item COGS snapshot must remain immutable after refund recalculation.'
+);
+cogs_studio_smoke_assert( abs( $order_metrics['revenue'] - 100.0 ) < 0.0001, 'Refunded product revenue should be reduced to 100.' );
+cogs_studio_smoke_assert( abs( $order_metrics['cogs'] - 40.0 ) < 0.0001, 'COGS Studio net historical COGS should be reduced to 40 after refunding one of two units.' );
+cogs_studio_smoke_assert( abs( $order_metrics['profit'] - 60.0 ) < 0.0001, 'Refunded order gross profit should equal 60.' );
+cogs_studio_smoke_assert( abs( $order_metrics['margin'] - 60.0 ) < 0.0001, 'Refunded order gross margin should remain 60%.' );
+
+// Dashboard cache must invalidate on relevant product/order changes.
+set_transient( COGS_Studio\Dashboard_Cache::TRANSIENT_KEY, array( 'stale' => true ), HOUR_IN_SECONDS );
+$order_product = wc_get_product( $order_product_id );
+$order_product->set_regular_price( '105' );
+$order_product->save();
+cogs_studio_smoke_assert( false === get_transient( COGS_Studio\Dashboard_Cache::TRANSIENT_KEY ), 'Product profitability changes must invalidate the dashboard cache.' );
 
 echo "COGS Studio runtime smoke test passed.\n";
