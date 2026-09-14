@@ -49,3 +49,21 @@ find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
 ## License
 
 GPL-3.0-or-later.
+
+## Releases
+
+Releases are published automatically from the `main` branch after the full **PHP checks** workflow succeeds.
+
+The release workflow:
+
+- verifies that the successful CI commit is still the current `main` commit;
+- validates that the plugin header version matches the `readme.txt` stable tag;
+- skips versions that already have a GitHub Release;
+- builds the production ZIP with the canonical `cogs-studio-for-woocommerce/` root;
+- excludes tests, GitHub workflow files, development files, and legacy plugin identities;
+- validates ZIP integrity and package identity;
+- generates a SHA-256 checksum;
+- creates the `vX.Y.Z` tag and GitHub Release;
+- attaches the installable ZIP and `SHA256SUMS.txt`.
+
+To publish a new version, update the plugin version, `readme.txt` stable tag, and changelog, then merge to `main`. A release is created only after the main CI suite passes.
