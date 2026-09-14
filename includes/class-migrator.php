@@ -73,13 +73,14 @@ final class Migrator {
 				$product = $this->cogs->get_product( (int) $product_id );
 				$current = $this->cogs->nominal_cost( $product );
 
-				if ( null !== $current && $current > 0 ) {
+				if ( null !== $current ) {
 					++$stats['skipped'];
 					continue;
 				}
 
-				$legacy_cost = (float) wc_format_decimal( (string) $legacy_raw, 6 );
-				$this->cogs->set_cost( (int) $product_id, $legacy_cost, 'legacy-migration' );
+				$legacy_cost    = (float) wc_format_decimal( (string) $legacy_raw, 6 );
+				$variation_mode = method_exists( $product, 'set_cogs_value_is_additive' ) ? 'override' : null;
+				$this->cogs->set_cost( (int) $product_id, $legacy_cost, 'legacy-migration', $variation_mode );
 				++$stats['migrated'];
 			} catch ( \Throwable $e ) {
 				++$stats['errors'];
