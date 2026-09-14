@@ -14,7 +14,7 @@ function cogs_studio_smoke_assert( bool $condition, string $message ): void {
 
 cogs_studio_smoke_assert( class_exists( 'WooCommerce' ), 'WooCommerce is not loaded.' );
 cogs_studio_smoke_assert( class_exists( 'COGS_Studio\\Plugin' ), 'COGS Studio is not loaded.' );
-cogs_studio_smoke_assert( 'cost-of-goods/cost-of-goods.php' === plugin_basename( COGS_STUDIO_FILE ), 'Plugin basename must remain upgrade-compatible with the legacy plugin.' );
+cogs_studio_smoke_assert( 'cogs-studio-for-woocommerce/cogs-studio-for-woocommerce.php' === plugin_basename( COGS_STUDIO_FILE ), 'Plugin basename must match the COGS Studio identity.' );
 
 $compatibility = new COGS_Studio\Compatibility();
 cogs_studio_smoke_assert( $compatibility->supported_woocommerce(), 'WooCommerce version is not supported.' );
