@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.1
+
+- Fully renamed the WordPress plugin identity to COGS Studio for WooCommerce.
+- Plugin directory is now `cogs-studio-for-woocommerce/`.
+- Main plugin file is now `cogs-studio-for-woocommerce.php`.
+- CI, runtime tests, packaging, and plugin basename checks now use the new identity.
+- Removed the legacy install-path compatibility constraint.
+
 ## 2.1.0
 
 - Added global native COGS audit tracking for WooCommerce product saves.
