@@ -3,7 +3,7 @@
  * Plugin Name: COGS Studio for WooCommerce
  * Plugin URI: https://github.com/spiros-g/COGS-Studio-for-WooCommerce
  * Description: Cost management, profitability insights, stock valuation, and legacy COGS migration built on WooCommerce's native Cost of Goods Sold API.
- * Version: 2.1.0
+ * Version: 2.1.1
  * Author: Spiros G.
  * Author URI: https://spirosg.dev/
  * Text Domain: cogs-studio-for-woocommerce
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'COGS_STUDIO_VERSION', '2.1.0' );
+define( 'COGS_STUDIO_VERSION', '2.1.1' );
 define( 'COGS_STUDIO_FILE', __FILE__ );
 define( 'COGS_STUDIO_PATH', plugin_dir_path( __FILE__ ) );
 define( 'COGS_STUDIO_URL', plugin_dir_url( __FILE__ ) );

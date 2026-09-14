@@ -9,7 +9,7 @@ COGS Studio is a WooCommerce cost and profitability management layer built on th
 - WooCommerce 10.3+
 - WooCommerce **Cost of Goods Sold** enabled under **WooCommerce → Settings → Advanced → Features**
 
-## What v2.1 includes
+## What v2.1.1 includes
 
 - Native WooCommerce COGS as the only cost source of truth
 - AJAX product/variation cost manager
@@ -39,6 +39,10 @@ Product gross profit is:
 `current product price - effective native COGS`
 
 Order profitability uses product line totals after item-level refunds and excludes tax and shipping. This keeps the calculation focused on merchandise gross profit rather than treating tax or shipping as product revenue.
+
+## Plugin identity
+
+`cogs-studio-for-woocommerce/cogs-studio-for-woocommerce.php`
 
 ## Repository
 
