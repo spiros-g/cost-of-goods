@@ -232,7 +232,7 @@
                     </article>
                     <article class="cogs-studio-card">
                         <h2>Data model</h2>
-                        <p>Product costs and order cost snapshots are stored by WooCommerce core. COGS Studio stores only its cost-change audit history and cached dashboard aggregates.</p>
+                        <p>Product costs remain owned by WooCommerce core. COGS Studio stores cost-change audit history, cached dashboard aggregates, and an immutable original COGS snapshot on paid order items so refund reporting cannot be re-priced by later product-cost changes.</p>
                         <p>No duplicate custom product COGS field is maintained by this plugin.</p>
                     </article>
                 </div>`;
