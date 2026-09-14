@@ -66,10 +66,19 @@ jobs:
           ! unzip -l "dist/cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}.zip" | grep -q "cost-of-goods.php"
 
   runtime-smoke:
+    name: runtime-smoke (${{ matrix.name }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        woocommerce: ['10.3.0', 'latest']
+        include:
+          - name: minimum
+            wordpress: '6.7'
+            woocommerce: '10.3.0'
+            php: '8.1'
+          - name: current
+            wordpress: 'latest'
+            woocommerce: 'latest'
+            php: '8.3'
     services:
       mysql:
         image: mysql:8.0
@@ -87,14 +96,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: ${{ matrix.php }}
           coverage: none
           tools: wp-cli
       - name: Install WordPress
         run: |
           mkdir -p /tmp/cogs-studio-wp
           cd /tmp/cogs-studio-wp
-          wp core download --quiet
+          if [ "${{ matrix.wordpress }}" = "latest" ]; then
+            wp core download --quiet
+          else
+            wp core download --version="${{ matrix.wordpress }}" --force --quiet
+          fi
           wp config create --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --skip-check
           wp core install --url=http://localhost --title="COGS Studio CI" --admin_user=admin --admin_password=password --admin_email=ci@example.com --skip-email
       - name: Install WooCommerce
