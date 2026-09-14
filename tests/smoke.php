@@ -146,6 +146,10 @@ $item_id = $order->add_product(
 	)
 );
 $order->calculate_totals( false );
+$order->save();
+
+// Persisted items are required for consistent COGS calculation across WooCommerce 10.3+.
+$order = wc_get_order( $order->get_id() );
 $order->calculate_cogs_total_value();
 $order->set_status( 'processing' );
 $order->save();
