@@ -36,6 +36,9 @@ final class Admin {
 		add_action( 'wp_ajax_cogs_studio_dashboard', array( $this, 'ajax_dashboard' ) );
 		add_action( 'wp_ajax_cogs_studio_products', array( $this, 'ajax_products' ) );
 		add_action( 'wp_ajax_cogs_studio_save_cost', array( $this, 'ajax_save_cost' ) );
+		add_action( 'wp_ajax_cogs_studio_bulk_cost', array( $this, 'ajax_bulk_cost' ) );
+		add_action( 'wp_ajax_cogs_studio_csv_export', array( $this, 'ajax_csv_export' ) );
+		add_action( 'wp_ajax_cogs_studio_csv_import', array( $this, 'ajax_csv_import' ) );
 		add_action( 'wp_ajax_cogs_studio_orders', array( $this, 'ajax_orders' ) );
 		add_action( 'wp_ajax_cogs_studio_history', array( $this, 'ajax_history' ) );
 		add_action( 'wp_ajax_cogs_studio_system', array( $this, 'ajax_system' ) );
@@ -180,23 +183,86 @@ final class Admin {
 		$this->guard_ajax();
 		$this->guard_cogs_enabled();
 
-		$cached = get_transient( Dashboard_Cache::TRANSIENT_KEY );
-		if ( is_array( $cached ) ) {
-			wp_send_json_success( $cached );
+		$period = sanitize_key( wp_unslash( $_POST['period'] ?? '30' ) );
+		if ( ! in_array( $period, array( '7', '30', '90', 'custom' ), true ) ) {
+			$period = '30';
 		}
 
-		$inventory = $this->inventory_totals();
-		$orders    = $this->order_totals_for_period( 30 );
+		$range     = $this->dashboard_range( $period );
+		$cache_key = 'custom' === $period ? '' : 'period_' . $period;
+		$cache     = get_transient( Dashboard_Cache::TRANSIENT_KEY );
+
+		if ( '' !== $cache_key && is_array( $cache ) && isset( $cache[ $cache_key ] ) && is_array( $cache[ $cache_key ] ) ) {
+			wp_send_json_success( $cache[ $cache_key ] );
+		}
 
 		$data = array(
-			'period_days' => 30,
-			'orders'      => $orders,
-			'inventory'   => $inventory,
-			'status'      => $this->compatibility->status(),
+			'period'    => $period,
+			'label'     => $range['label'],
+			'date_from' => $range['date_from'],
+			'date_to'   => $range['date_to'],
+			'orders'    => $this->order_totals_for_range( $range['after'], $range['before'] ),
+			'inventory' => $this->inventory_totals(),
+			'status'    => $this->compatibility->status(),
 		);
 
-		set_transient( Dashboard_Cache::TRANSIENT_KEY, $data, 10 * MINUTE_IN_SECONDS );
+		if ( '' !== $cache_key ) {
+			$cache               = is_array( $cache ) ? $cache : array();
+			$cache[ $cache_key ] = $data;
+			set_transient( Dashboard_Cache::TRANSIENT_KEY, $cache, 10 * MINUTE_IN_SECONDS );
+		}
+
 		wp_send_json_success( $data );
+	}
+
+	private function dashboard_range( string $period ): array {
+		$timezone = wp_timezone();
+		$now      = new \DateTimeImmutable( 'now', $timezone );
+
+		if ( 'custom' === $period ) {
+			$from = $this->parse_date_input( sanitize_text_field( wp_unslash( $_POST['date_from'] ?? '' ) ), false );
+			$to   = $this->parse_date_input( sanitize_text_field( wp_unslash( $_POST['date_to'] ?? '' ) ), true );
+
+			if ( ! $from || ! $to || $from > $to ) {
+				wp_send_json_error( array( 'message' => __( 'Choose a valid custom date range.', 'cogs-studio-for-woocommerce' ) ), 400 );
+			}
+
+			return array(
+				'after'     => $from->format( 'Y-m-d H:i:s' ),
+				'before'    => $to->format( 'Y-m-d H:i:s' ),
+				'date_from' => $from->format( 'Y-m-d' ),
+				'date_to'   => $to->format( 'Y-m-d' ),
+				'label'     => $from->format( 'Y-m-d' ) . ' → ' . $to->format( 'Y-m-d' ),
+			);
+		}
+
+		$days = max( 1, absint( $period ) );
+		$from = $now->modify( '-' . $days . ' days' );
+
+		return array(
+			'after'     => $from->format( 'Y-m-d H:i:s' ),
+			'before'    => $now->format( 'Y-m-d H:i:s' ),
+			'date_from' => $from->format( 'Y-m-d' ),
+			'date_to'   => $now->format( 'Y-m-d' ),
+			'label'     => sprintf(
+				/* translators: %d: number of days. */
+				_n( 'Last %d day', 'Last %d days', $days, 'cogs-studio-for-woocommerce' ),
+				$days
+			),
+		);
+	}
+
+	private function parse_date_input( string $value, bool $end_of_day ): ?\DateTimeImmutable {
+		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ) {
+			return null;
+		}
+
+		$date = \DateTimeImmutable::createFromFormat( '!Y-m-d', $value, wp_timezone() );
+		if ( ! $date || $date->format( 'Y-m-d' ) !== $value ) {
+			return null;
+		}
+
+		return $end_of_day ? $date->setTime( 23, 59, 59 ) : $date->setTime( 0, 0, 0 );
 	}
 
 	private function inventory_totals(): array {
@@ -252,13 +318,12 @@ final class Admin {
 		);
 	}
 
-	private function order_totals_for_period( int $days ): array {
-		$page    = 1;
-		$revenue = 0.0;
-		$cogs    = 0.0;
-		$profit  = 0.0;
-		$count   = 0;
-		$after    = wp_date( 'Y-m-d H:i:s', time() - ( DAY_IN_SECONDS * max( 1, $days ) ), wp_timezone() );
+	private function order_totals_for_range( string $after, string $before ): array {
+		$page     = 1;
+		$revenue  = 0.0;
+		$cogs     = 0.0;
+		$profit   = 0.0;
+		$count    = 0;
 		$statuses = array_values( array_unique( array_merge( wc_get_is_paid_statuses(), array( 'refunded' ) ) ) );
 
 		do {
@@ -268,7 +333,7 @@ final class Admin {
 					'page'         => $page,
 					'paginate'     => true,
 					'status'       => $statuses,
-					'date_created' => '>=' . $after,
+					'date_created' => $after . '...' . $before,
 					'orderby'      => 'date',
 					'order'        => 'DESC',
 				)
@@ -279,7 +344,7 @@ final class Admin {
 					continue;
 				}
 
-				$metrics = $this->profit->order_metrics( $order );
+				$metrics  = $this->profit->order_metrics( $order );
 				$revenue += $metrics['revenue'];
 				$cogs    += $metrics['cogs'];
 				$profit  += $metrics['profit'];
