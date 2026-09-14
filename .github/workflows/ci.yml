@@ -41,6 +41,7 @@ jobs:
           rsync -a ./ dist/cogs-studio-for-woocommerce/ \
             --exclude '.git' \
             --exclude '.github' \
+            --exclude 'tests' \
             --exclude 'dist'
           cd dist
           zip -qr cogs-studio-for-woocommerce-v2.0.0.zip cogs-studio-for-woocommerce
