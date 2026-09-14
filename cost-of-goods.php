@@ -1,64 +1,52 @@
 <?php
-/*
-Plugin Name: Cost of Goods
-Description: Simple plugin for managing Cost of Goods.
-Version: 1.0.0
-Author: Spiros G.
-Author URI: https://www.spirosg.dev/
-*/
+/**
+ * Plugin Name: COGS Studio for WooCommerce
+ * Plugin URI: https://github.com/spiros-g/cost-of-goods
+ * Description: Cost management, profitability insights, stock valuation, and legacy COGS migration built on WooCommerce's native Cost of Goods Sold API.
+ * Version: 2.0.0
+ * Author: Spiros G.
+ * Author URI: https://spirosg.dev/
+ * Text Domain: cogs-studio-for-woocommerce
+ * Domain Path: /languages
+ * Requires at least: 6.6
+ * Requires PHP: 8.1
+ * Requires Plugins: woocommerce
+ * WC requires at least: 10.3
+ * License: GPL-3.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-3.0.html
+ */
 
-// Add Cost of Goods Field for Single Product in General Tab
-add_action('woocommerce_product_options_general_product_data', 'product_cost_of_goods_field');
+defined( 'ABSPATH' ) || exit;
 
-// Add Cost of Goods Field for Variations
-add_action('woocommerce_product_after_variable_attributes', 'variation_cost_of_goods_field', 10, 3);
+define( 'COGS_STUDIO_VERSION', '2.0.0' );
+define( 'COGS_STUDIO_FILE', __FILE__ );
+define( 'COGS_STUDIO_PATH', plugin_dir_path( __FILE__ ) );
+define( 'COGS_STUDIO_URL', plugin_dir_url( __FILE__ ) );
 
-// Display Cost of Goods Field for Single Product in General Tab
-function product_cost_of_goods_field() {
-    if (isset($_GET['post'])) {
-        $product = wc_get_product($_GET['post']);
-        if ($product->is_type('simple')) {
-            woocommerce_wp_text_input(array(
-                'id' => 'cog_cost',
-                'label' => __('Cost of Goods', 'woocommerce'),
-                'placeholder' => '0.00',
-                'desc_tip' => 'true',
-                'description' => __('Enter the cost of goods for this product.', 'woocommerce'),
-                'value' => get_post_meta(get_the_ID(), 'cog_cost', true),
-            ));
-        }
-    }
-}
+require_once COGS_STUDIO_PATH . 'includes/class-installer.php';
+require_once COGS_STUDIO_PATH . 'includes/class-compatibility.php';
+require_once COGS_STUDIO_PATH . 'includes/class-cost-history.php';
+require_once COGS_STUDIO_PATH . 'includes/class-cogs-service.php';
+require_once COGS_STUDIO_PATH . 'includes/class-profit-calculator.php';
+require_once COGS_STUDIO_PATH . 'includes/class-migrator.php';
+require_once COGS_STUDIO_PATH . 'admin/class-admin.php';
+require_once COGS_STUDIO_PATH . 'includes/class-plugin.php';
 
-// Display Cost of Goods Field for Variations
-function variation_cost_of_goods_field($loop, $variation_data, $variation) {
-    woocommerce_wp_text_input(array(
-        'id' => 'cog_cost[' . $variation->ID . ']',
-        'label' => __('Cost of Goods', 'woocommerce'),
-        'placeholder' => '0.00',
-        'desc_tip' => 'true',
-        'description' => __('Enter the cost of goods for this variation.', 'woocommerce'),
-        'value' => get_post_meta($variation->ID, 'cog_cost', true),
-    ));
-}
+register_activation_hook( __FILE__, array( 'COGS_Studio\\Installer', 'activate' ) );
 
-// Save Cost of Goods Field
-function save_cost_of_goods_field($post_id) {
-    if (isset($_POST['cog_cost'])) {
-        $cost_of_goods = $_POST['cog_cost'];
-        
-        if (is_array($cost_of_goods)) {
-            // For variations
-            foreach ($cost_of_goods as $variation_id => $value) {
-                update_post_meta($variation_id, 'cog_cost', wc_clean($value));
-            }
-        } else {
-            // For single product
-            update_post_meta($post_id, 'cog_cost', wc_clean($cost_of_goods));
-        }
-    }
-}
-add_action('woocommerce_process_product_meta', 'save_cost_of_goods_field');
+add_action(
+	'before_woocommerce_init',
+	static function (): void {
+		if ( class_exists( '\\Automattic\\WooCommerce\\Utilities\\FeaturesUtil' ) ) {
+			\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
+		}
+	}
+);
 
-
-
+add_action(
+	'plugins_loaded',
+	static function (): void {
+		COGS_Studio\Plugin::instance()->boot();
+	},
+	20
+);
