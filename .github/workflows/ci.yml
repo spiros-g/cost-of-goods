@@ -69,6 +69,7 @@ jobs:
     name: runtime-smoke (${{ matrix.name }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: minimum
