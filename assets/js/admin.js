@@ -491,6 +491,19 @@
             dashboardState.period = panel.querySelector('[name="dashboard-period"]')?.value || '30';
             dashboardState.date_from = panel.querySelector('[name="dashboard-date-from"]')?.value || '';
             dashboardState.date_to = panel.querySelector('[name="dashboard-date-to"]')?.value || '';
+
+            if (
+                dashboardState.period === 'custom' &&
+                (
+                    !dashboardState.date_from ||
+                    !dashboardState.date_to ||
+                    dashboardState.date_from > dashboardState.date_to
+                )
+            ) {
+                window.alert('Choose a valid custom date range.');
+                return;
+            }
+
             await loadDashboard();
             return;
         }
