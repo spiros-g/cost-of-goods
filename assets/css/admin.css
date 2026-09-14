@@ -175,12 +175,21 @@
 .cogs-studio-cost-editor {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 6px;
-    min-width: 190px;
+    min-width: 270px;
+}
+
+.cogs-studio-cost-editor select {
+    max-width: 135px;
 }
 
 .cogs-studio-cost-editor input {
     width: 110px;
+}
+
+.cogs-studio-cost-editor input:disabled {
+    opacity: .6;
 }
 
 .cogs-studio-table-meta {
