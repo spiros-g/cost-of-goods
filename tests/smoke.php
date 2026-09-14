@@ -20,6 +20,15 @@ $compatibility = new COGS_Studio\Compatibility();
 cogs_studio_smoke_assert( $compatibility->supported_woocommerce(), 'WooCommerce version is not supported.' );
 cogs_studio_smoke_assert( $compatibility->cogs_enabled(), 'Native WooCommerce COGS is not enabled.' );
 
+$expected_hpos = getenv( 'COGS_EXPECT_HPOS' );
+if ( in_array( $expected_hpos, array( 'yes', 'no' ), true ) ) {
+	$hpos_enabled = \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
+	cogs_studio_smoke_assert(
+		( 'yes' === $expected_hpos ) === $hpos_enabled,
+		sprintf( 'Unexpected order storage mode. Expected HPOS=%s, actual=%s.', $expected_hpos, $hpos_enabled ? 'yes' : 'no' )
+	);
+}
+
 $history = new COGS_Studio\Cost_History();
 $service = new COGS_Studio\COGS_Service( $compatibility, $history );
 
