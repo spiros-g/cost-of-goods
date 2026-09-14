@@ -234,6 +234,9 @@ $order_product->save();
 cogs_studio_smoke_assert( false === get_transient( COGS_Studio\Dashboard_Cache::TRANSIENT_KEY ), 'Product profitability changes must invalidate the dashboard cache.' );
 
 // v2.2 management semantics.
+if ( ! class_exists( 'COGS_Studio\\Admin' ) ) {
+	require_once COGS_STUDIO_PATH . 'admin/class-admin.php';
+}
 $admin = new COGS_Studio\Admin( $compatibility, $service, $profit_calculator, $history );
 
 $has_defined_method = new ReflectionMethod( COGS_Studio\Admin::class, 'product_has_defined_cogs' );
