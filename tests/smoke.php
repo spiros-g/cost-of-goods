@@ -153,7 +153,8 @@ $order->save();
 $order = wc_get_order( $order->get_id() );
 cogs_studio_smoke_assert( abs( $order->get_cogs_total_value() - 80.0 ) < 0.0001, 'Order COGS snapshot should equal 80.' );
 
-$profit_calculator = new COGS_Studio\Profit_Calculator( $service );
+$order_snapshots   = new COGS_Studio\Order_COGS_Snapshot();
+$profit_calculator = new COGS_Studio\Profit_Calculator( $service, $order_snapshots );
 $order_metrics     = $profit_calculator->order_metrics( $order );
 cogs_studio_smoke_assert( abs( $order_metrics['revenue'] - 200.0 ) < 0.0001, 'Order product revenue should equal 200.' );
 cogs_studio_smoke_assert( abs( $order_metrics['profit'] - 120.0 ) < 0.0001, 'Order gross profit should equal 120.' );
@@ -161,7 +162,13 @@ cogs_studio_smoke_assert( abs( $order_metrics['margin'] - 60.0 ) < 0.0001, 'Orde
 
 $service->set_cost( $order_product_id, 60.0, 'smoke' );
 $order = wc_get_order( $order->get_id() );
-cogs_studio_smoke_assert( abs( $order->get_cogs_total_value() - 80.0 ) < 0.0001, 'Historical order COGS must not change when product COGS changes.' );
+cogs_studio_smoke_assert( abs( $order->get_cogs_total_value() - 80.0 ) < 0.0001, 'Historical native order COGS must not change before a refund recalculation.' );
+
+$order_item = $order->get_item( $item_id );
+cogs_studio_smoke_assert(
+	abs( (float) $order_item->get_meta( COGS_Studio\Order_COGS_Snapshot::ITEM_META_KEY, true ) - 80.0 ) < 0.0001,
+	'COGS Studio must preserve the original order-item COGS snapshot.'
+);
 
 $refund = wc_create_refund(
 	array(
@@ -181,14 +188,17 @@ $refund = wc_create_refund(
 cogs_studio_smoke_assert( ! is_wp_error( $refund ), 'WooCommerce refund creation failed.' );
 
 $order = wc_get_order( $order->get_id() );
-$order->calculate_cogs_total_value();
-$order->save();
-$order = wc_get_order( $order->get_id() );
 $order_metrics = $profit_calculator->order_metrics( $order );
+$order_item    = $order->get_item( $item_id );
 
-cogs_studio_smoke_assert( abs( $order->get_cogs_total_value() - 40.0 ) < 0.0001, 'Refunded order COGS should be reduced to 40.' );
+cogs_studio_smoke_assert(
+	abs( (float) $order_item->get_meta( COGS_Studio\Order_COGS_Snapshot::ITEM_META_KEY, true ) - 80.0 ) < 0.0001,
+	'Original order-item COGS snapshot must remain immutable after refund recalculation.'
+);
 cogs_studio_smoke_assert( abs( $order_metrics['revenue'] - 100.0 ) < 0.0001, 'Refunded product revenue should be reduced to 100.' );
+cogs_studio_smoke_assert( abs( $order_metrics['cogs'] - 40.0 ) < 0.0001, 'COGS Studio net historical COGS should be reduced to 40 after refunding one of two units.' );
 cogs_studio_smoke_assert( abs( $order_metrics['profit'] - 60.0 ) < 0.0001, 'Refunded order gross profit should equal 60.' );
+cogs_studio_smoke_assert( abs( $order_metrics['margin'] - 60.0 ) < 0.0001, 'Refunded order gross margin should remain 60%.' );
 
 // Dashboard cache must invalidate on relevant product/order changes.
 set_transient( COGS_Studio\Dashboard_Cache::TRANSIENT_KEY, array( 'stale' => true ), HOUR_IN_SECONDS );
