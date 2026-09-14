@@ -26,7 +26,23 @@ final class Product_Cost_Audit {
 	}
 
 	public function capture_before_save( $product ): void {
-		if ( ! $product instanceof WC_Product || $product->get_id() <= 0 || ! method_exists( $product, 'get_cogs_value' ) ) {
+		if ( ! $product instanceof WC_Product || ! method_exists( $product, 'get_cogs_value' ) ) {
+			return;
+		}
+
+		$changes = $product->get_changes();
+		if ( ! array_key_exists( 'cogs_value', $changes ) && ! array_key_exists( 'cogs_value_is_additive', $changes ) ) {
+			return;
+		}
+
+		$key = spl_object_id( $product );
+
+		if ( $product->get_id() <= 0 ) {
+			$this->before[ $key ] = array(
+				'product_id' => 0,
+				'cost'       => null,
+				'mode'       => method_exists( $product, 'get_cogs_value_is_additive' ) ? 'inherit' : 'simple',
+			);
 			return;
 		}
 
@@ -35,7 +51,7 @@ final class Product_Cost_Audit {
 			return;
 		}
 
-		$this->before[ spl_object_id( $product ) ] = array(
+		$this->before[ $key ] = array(
 			'product_id' => $product->get_id(),
 			'cost'       => $this->nominal_cost( $persisted ),
 			'mode'       => $this->variation_mode( $persisted ),
@@ -65,7 +81,7 @@ final class Product_Cost_Audit {
 		}
 
 		$this->history->log(
-			(int) $before['product_id'],
+			(int) ( $before['product_id'] ?: $product->get_id() ),
 			$before['cost'],
 			$new_cost,
 			$source,
