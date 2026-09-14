@@ -109,7 +109,10 @@ jobs:
           cd /tmp/cogs-studio-plugin-check
           OUTPUT="$(wp plugin check cogs-studio-for-woocommerce 2>&1)"
           printf '%s\n' "$OUTPUT"
-          if printf '%s\n' "$OUTPUT" | grep -Eq 
+          if printf '%s\n' "$OUTPUT" | grep -E 'ERROR|WARNING' >/dev/null; then
+            echo "Plugin Check reported ERROR or WARNING findings."
+            exit 1
+          fi
 
   runtime-smoke:
     name: runtime-smoke (${{ matrix.name }})
