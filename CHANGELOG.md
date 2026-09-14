@@ -8,6 +8,7 @@
 - Added dashboard cache invalidation for relevant product and order changes.
 - Optimized the COGS audit observer to skip unrelated product saves.
 - Added audit coverage for COGS set on a product's first save.
+- Added immutable paid-order item COGS snapshots so refund reporting remains historical even if product COGS changes later.
 - Added runtime regression tests for historical order COGS snapshots and refunds.
 - Added CI coverage for the minimum stack (WordPress 6.7 + WooCommerce 10.3 + PHP 8.1) and the current stable stack.
 - Removed the unused legacy `cog_cost` migration layer.
