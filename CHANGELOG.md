@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.0
+
+- Added selectable dashboard profitability periods for 7, 30, 90 days, plus custom date ranges.
+- Added product filters for category, product type, stock status, defined/undefined COGS, and maximum margin.
+- Added bulk COGS set and clear actions for up to 200 selected products per operation.
+- Bulk variation updates use native override semantics when setting a cost and native inherit semantics when clearing.
+- Added CSV export of product/variation COGS and profitability fields.
+- Added validated CSV import using product ID or SKU, with native variation mode support and cost-history source tracking.
+- Added realized-order filtering by order status and date range.
+- Expanded the AJAX management UI while keeping WooCommerce native COGS as the sole product-cost source of truth.
+
 ## 2.1.2
 
 - Aligned the minimum WordPress requirement with WooCommerce 10.3: WordPress 6.7+.
