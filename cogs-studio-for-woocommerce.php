@@ -28,6 +28,7 @@ require_once COGS_STUDIO_PATH . 'includes/class-installer.php';
 require_once COGS_STUDIO_PATH . 'includes/class-compatibility.php';
 require_once COGS_STUDIO_PATH . 'includes/class-cost-history.php';
 require_once COGS_STUDIO_PATH . 'includes/class-dashboard-cache.php';
+require_once COGS_STUDIO_PATH . 'includes/class-order-cogs-snapshot.php';
 require_once COGS_STUDIO_PATH . 'includes/class-product-cost-audit.php';
 require_once COGS_STUDIO_PATH . 'includes/class-cogs-service.php';
 require_once COGS_STUDIO_PATH . 'includes/class-profit-calculator.php';
