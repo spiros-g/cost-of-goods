@@ -41,6 +41,7 @@ final class Admin {
 		add_action( 'wp_ajax_cogs_studio_save_cost', array( $this, 'ajax_save_cost' ) );
 		add_action( 'wp_ajax_cogs_studio_orders', array( $this, 'ajax_orders' ) );
 		add_action( 'wp_ajax_cogs_studio_history', array( $this, 'ajax_history' ) );
+		add_action( 'wp_ajax_cogs_studio_system', array( $this, 'ajax_system' ) );
 		add_action( 'wp_ajax_cogs_studio_migrate', array( $this, 'ajax_migrate' ) );
 	}
 
@@ -254,7 +255,8 @@ final class Admin {
 		$cogs    = 0.0;
 		$profit  = 0.0;
 		$count   = 0;
-		$after   = gmdate( 'Y-m-d H:i:s', time() - ( DAY_IN_SECONDS * max( 1, $days ) ) );
+		$after    = wp_date( 'Y-m-d H:i:s', time() - ( DAY_IN_SECONDS * max( 1, $days ) ), wp_timezone() );
+		$statuses = array_values( array_unique( array_merge( wc_get_is_paid_statuses(), array( 'refunded' ) ) ) );
 
 		do {
 			$result = wc_get_orders(
@@ -262,7 +264,7 @@ final class Admin {
 					'limit'        => 100,
 					'page'         => $page,
 					'paginate'     => true,
-					'status'       => array( 'wc-processing', 'wc-completed' ),
+					'status'       => $statuses,
 					'date_created' => '>=' . $after,
 					'orderby'      => 'date',
 					'order'        => 'DESC',
@@ -298,7 +300,6 @@ final class Admin {
 
 		$page   = max( 1, absint( $_POST['page'] ?? 1 ) );
 		$search = sanitize_text_field( wp_unslash( $_POST['search'] ?? '' ) );
-		$type   = sanitize_key( wp_unslash( $_POST['type'] ?? '' ) );
 
 		$args = array(
 			'post_type'              => array( 'product', 'product_variation' ),
@@ -330,13 +331,11 @@ final class Admin {
 				continue;
 			}
 
-			if ( '' !== $type && $product->get_type() !== $type ) {
-				continue;
-			}
 
-			$metrics = $this->profit->product_metrics( $product );
-			$nominal = $this->cogs->nominal_cost( $product );
-			$parent  = $product->get_parent_id();
+			$metrics   = $this->profit->product_metrics( $product );
+			$nominal   = $this->cogs->nominal_cost( $product );
+			$parent    = $product->get_parent_id();
+			$cost_mode = $this->cogs->variation_mode( $product );
 
 			$rows[] = array(
 				'id'           => $product->get_id(),
@@ -346,6 +345,8 @@ final class Admin {
 				'parent_id'    => $parent,
 				'price'        => $metrics['price'],
 				'nominal_cost' => $nominal,
+				'cost_mode'    => $cost_mode,
+				'is_variation' => 'simple' !== $cost_mode,
 				'cost'         => $metrics['cost'],
 				'profit'       => $metrics['profit'],
 				'margin'       => $metrics['margin'],
@@ -370,28 +371,53 @@ final class Admin {
 
 		$product_id = absint( $_POST['product_id'] ?? 0 );
 		$raw_cost   = isset( $_POST['cost'] ) ? trim( (string) wp_unslash( $_POST['cost'] ) ) : '';
+		$mode       = sanitize_key( wp_unslash( $_POST['mode'] ?? '' ) );
 
 		if ( $product_id <= 0 ) {
 			wp_send_json_error( array( 'message' => __( 'Invalid product.', 'cogs-studio-for-woocommerce' ) ), 400 );
 		}
 
-		if ( '' === $raw_cost ) {
-			$cost = null;
-		} else {
-			$normalized = wc_format_decimal( $raw_cost, 6 );
-			if ( '' === $normalized || ! is_numeric( $normalized ) || (float) $normalized < 0 ) {
-				wp_send_json_error( array( 'message' => __( 'Enter a valid non-negative cost.', 'cogs-studio-for-woocommerce' ) ), 400 );
-			}
-			$cost = (float) $normalized;
-		}
-
 		try {
-			$product = $this->cogs->set_cost( $product_id, $cost, 'cogs-studio' );
+			$current_product = $this->cogs->get_product( $product_id );
+			$is_variation    = method_exists( $current_product, 'set_cogs_value_is_additive' );
+
+			if ( $is_variation ) {
+				if ( ! in_array( $mode, array( 'inherit', 'override', 'additive' ), true ) ) {
+					wp_send_json_error( array( 'message' => __( 'Choose a valid variation COGS mode.', 'cogs-studio-for-woocommerce' ) ), 400 );
+				}
+
+				if ( 'inherit' === $mode ) {
+					$cost = null;
+				} else {
+					if ( '' === $raw_cost ) {
+						wp_send_json_error( array( 'message' => __( 'Enter a cost for Override or Add to parent mode.', 'cogs-studio-for-woocommerce' ) ), 400 );
+					}
+					$normalized = wc_format_decimal( $raw_cost, 6 );
+					if ( '' === $normalized || ! is_numeric( $normalized ) || (float) $normalized < 0 ) {
+						wp_send_json_error( array( 'message' => __( 'Enter a valid non-negative cost.', 'cogs-studio-for-woocommerce' ) ), 400 );
+					}
+					$cost = (float) $normalized;
+				}
+			} else {
+				if ( '' === $raw_cost ) {
+					$cost = null;
+				} else {
+					$normalized = wc_format_decimal( $raw_cost, 6 );
+					if ( '' === $normalized || ! is_numeric( $normalized ) || (float) $normalized < 0 ) {
+						wp_send_json_error( array( 'message' => __( 'Enter a valid non-negative cost.', 'cogs-studio-for-woocommerce' ) ), 400 );
+					}
+					$cost = (float) $normalized;
+				}
+				$mode = null;
+			}
+
+			$product = $this->cogs->set_cost( $product_id, $cost, 'cogs-studio', $mode );
 			$metrics = $this->profit->product_metrics( $product );
 
 			wp_send_json_success(
 				array(
 					'nominal_cost' => $this->cogs->nominal_cost( $product ),
+					'cost_mode'    => $this->cogs->variation_mode( $product ),
 					'cost'         => $metrics['cost'],
 					'profit'       => $metrics['profit'],
 					'margin'       => $metrics['margin'],
@@ -471,6 +497,19 @@ final class Admin {
 		}
 
 		wp_send_json_success( array( 'rows' => $rows ) );
+	}
+
+	public function ajax_system(): void {
+		$this->guard_ajax();
+
+		wp_send_json_success(
+			array(
+				'plugin_version'         => COGS_STUDIO_VERSION,
+				'status'                 => $this->compatibility->status(),
+				'legacy_candidates'      => $this->migrator->candidate_count(),
+				'migration_completed_at' => (string) get_option( 'cogs_studio_legacy_migration_completed_at', '' ),
+			)
+		);
 	}
 
 	public function ajax_migrate(): void {
