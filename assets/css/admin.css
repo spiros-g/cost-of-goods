@@ -229,3 +229,105 @@
         width: 100%;
     }
 }
+
+
+.cogs-studio-toolbar--stack {
+    align-items: stretch;
+    flex-direction: column;
+}
+
+.cogs-studio-filter-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cogs-studio-filter-row--grow {
+    flex: 1 1 auto;
+}
+
+.cogs-studio-filter-row--grow input[type="search"] {
+    flex: 1 1 280px;
+}
+
+.cogs-studio-filter-row select,
+.cogs-studio-filter-row input[type="date"],
+.cogs-studio-filter-row input[type="number"] {
+    min-height: 32px;
+}
+
+.cogs-studio-filter-row select {
+    max-width: 220px;
+}
+
+.cogs-studio-filter-row input[name="cogs-margin-max"] {
+    width: 120px;
+}
+
+.cogs-studio-help {
+    color: #646970;
+    font-size: 12px;
+}
+
+.cogs-studio-list-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.cogs-studio-list-head .cogs-studio-table-meta {
+    margin: 0;
+}
+
+.cogs-studio-bulk-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cogs-studio-bulk-bar [data-bulk-cost] {
+    width: 120px;
+}
+
+.cogs-studio-select-cell {
+    width: 34px;
+    text-align: center;
+}
+
+.cogs-studio-table--products {
+    min-width: 1120px;
+}
+
+.cogs-studio-warning-text {
+    color: #b32d2e !important;
+    font-weight: 600;
+}
+
+@media (max-width: 960px) {
+    .cogs-studio-filter-row {
+        align-items: stretch;
+    }
+
+    .cogs-studio-filter-row > input,
+    .cogs-studio-filter-row > select,
+    .cogs-studio-filter-row > button {
+        max-width: none;
+        width: 100%;
+    }
+
+    .cogs-studio-filter-row input[name="cogs-margin-max"],
+    .cogs-studio-bulk-bar [data-bulk-cost] {
+        width: 100%;
+    }
+
+    .cogs-studio-list-head,
+    .cogs-studio-bulk-bar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}
