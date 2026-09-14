@@ -33,10 +33,12 @@ final class Plugin {
 		$history       = new Cost_History();
 		$cache         = new Dashboard_Cache();
 		$cache->register();
-		$audit         = new Product_Cost_Audit( $history );
+		$audit           = new Product_Cost_Audit( $history );
 		$audit->register();
-		$cogs          = new COGS_Service( $compatibility, $history );
-		$profit        = new Profit_Calculator( $cogs );
+		$order_snapshots = new Order_COGS_Snapshot();
+		$order_snapshots->register();
+		$cogs            = new COGS_Service( $compatibility, $history );
+		$profit          = new Profit_Calculator( $cogs, $order_snapshots );
 
 		if ( is_admin() ) {
 			$admin = new Admin( $compatibility, $cogs, $profit, $history );
