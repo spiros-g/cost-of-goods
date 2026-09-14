@@ -614,6 +614,261 @@ final class Admin {
 		}
 	}
 
+	public function ajax_bulk_cost(): void {
+		check_ajax_referer( 'cogs_studio_admin', 'nonce' );
+		$this->guard_ajax();
+		$this->guard_cogs_enabled();
+
+		$ids_json  = sanitize_text_field( wp_unslash( $_POST['product_ids'] ?? '[]' ) );
+		$operation = sanitize_key( wp_unslash( $_POST['operation'] ?? '' ) );
+		$raw_cost  = trim( sanitize_text_field( wp_unslash( $_POST['cost'] ?? '' ) ) );
+		$decoded   = json_decode( $ids_json, true );
+
+		if ( ! is_array( $decoded ) ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid product selection.', 'cogs-studio-for-woocommerce' ) ), 400 );
+		}
+
+		$product_ids = array_values( array_unique( array_filter( array_map( 'absint', $decoded ) ) ) );
+		if ( empty( $product_ids ) || count( $product_ids ) > 200 ) {
+			wp_send_json_error( array( 'message' => __( 'Select between 1 and 200 products.', 'cogs-studio-for-woocommerce' ) ), 400 );
+		}
+
+		if ( ! in_array( $operation, array( 'set', 'clear' ), true ) ) {
+			wp_send_json_error( array( 'message' => __( 'Choose a valid bulk operation.', 'cogs-studio-for-woocommerce' ) ), 400 );
+		}
+
+		$cost = null;
+		if ( 'set' === $operation ) {
+			$normalized = wc_format_decimal( $raw_cost, 6 );
+			if ( '' === $raw_cost || '' === $normalized || ! is_numeric( $normalized ) || (float) $normalized < 0 ) {
+				wp_send_json_error( array( 'message' => __( 'Enter a valid non-negative bulk cost.', 'cogs-studio-for-woocommerce' ) ), 400 );
+			}
+			$cost = (float) $normalized;
+		}
+
+		$updated = 0;
+		$errors  = array();
+
+		foreach ( $product_ids as $product_id ) {
+			try {
+				$product      = $this->cogs->get_product( $product_id );
+				$is_variation = method_exists( $product, 'set_cogs_value_is_additive' );
+				$mode         = null;
+
+				if ( $is_variation ) {
+					$mode = 'set' === $operation ? 'override' : 'inherit';
+				}
+
+				$this->cogs->set_cost(
+					$product_id,
+					'set' === $operation ? $cost : null,
+					'cogs-studio-bulk',
+					$mode
+				);
+				++$updated;
+			} catch ( \Throwable $e ) {
+				$errors[] = sprintf( '#%d: %s', $product_id, $e->getMessage() );
+			}
+		}
+
+		wp_send_json_success(
+			array(
+				'updated' => $updated,
+				'errors'  => array_slice( $errors, 0, 20 ),
+			)
+		);
+	}
+
+	public function ajax_csv_export(): void {
+		check_ajax_referer( 'cogs_studio_admin', 'nonce' );
+		$this->guard_ajax();
+		$this->guard_cogs_enabled();
+
+		$filters = array(
+			'search'       => '',
+			'category'     => 0,
+			'type'         => '',
+			'stock_status' => '',
+			'cogs_state'   => '',
+			'margin_max'   => null,
+		);
+		$rows = $this->filtered_product_rows( $filters );
+
+		$handle = fopen( 'php://temp', 'w+' );
+		if ( false === $handle ) {
+			wp_send_json_error( array( 'message' => __( 'Could not create CSV export.', 'cogs-studio-for-woocommerce' ) ), 500 );
+		}
+
+		fputcsv( $handle, array( 'product_id', 'sku', 'name', 'type', 'mode', 'defined_cost', 'effective_cost', 'price', 'margin' ) );
+		foreach ( $rows as $row ) {
+			fputcsv(
+				$handle,
+				array(
+					$row['id'],
+					$this->csv_safe_cell( (string) $row['sku'] ),
+					$this->csv_safe_cell( (string) $row['name'] ),
+					$row['type'],
+					$row['cost_mode'],
+					null === $row['nominal_cost'] ? '' : $row['nominal_cost'],
+					$row['cost'],
+					$row['price'],
+					$row['margin'],
+				)
+			);
+		}
+
+		rewind( $handle );
+		$csv = stream_get_contents( $handle );
+		fclose( $handle );
+
+		wp_send_json_success(
+			array(
+				'filename' => 'cogs-studio-' . wp_date( 'Y-m-d-His' ) . '.csv',
+				'content'  => base64_encode( (string) $csv ),
+				'count'    => count( $rows ),
+			)
+		);
+	}
+
+	private function csv_safe_cell( string $value ): string {
+		return preg_match( '/^[=+\-@]/', $value ) ? "'" . $value : $value;
+	}
+
+	public function ajax_csv_import(): void {
+		check_ajax_referer( 'cogs_studio_admin', 'nonce' );
+		$this->guard_ajax();
+		$this->guard_cogs_enabled();
+
+		$csv = wp_unslash( $_POST['csv'] ?? '' );
+		if ( ! is_string( $csv ) || '' === trim( $csv ) ) {
+			wp_send_json_error( array( 'message' => __( 'Choose a non-empty CSV file.', 'cogs-studio-for-woocommerce' ) ), 400 );
+		}
+
+		if ( strlen( $csv ) > 2 * MB_IN_BYTES ) {
+			wp_send_json_error( array( 'message' => __( 'CSV file is too large. Maximum size is 2 MB.', 'cogs-studio-for-woocommerce' ) ), 413 );
+		}
+
+		$handle = fopen( 'php://temp', 'w+' );
+		if ( false === $handle ) {
+			wp_send_json_error( array( 'message' => __( 'Could not read CSV import.', 'cogs-studio-for-woocommerce' ) ), 500 );
+		}
+
+		fwrite( $handle, $csv );
+		rewind( $handle );
+
+		$header = fgetcsv( $handle );
+		if ( ! is_array( $header ) ) {
+			fclose( $handle );
+			wp_send_json_error( array( 'message' => __( 'CSV header is missing.', 'cogs-studio-for-woocommerce' ) ), 400 );
+		}
+
+		$header = array_map(
+			static function ( $value ): string {
+				$value = preg_replace( '/^\xEF\xBB\xBF/', '', (string) $value );
+				return sanitize_key( trim( $value ) );
+			},
+			$header
+		);
+
+		$cost_column = array_search( 'defined_cost', $header, true );
+		if ( false === $cost_column ) {
+			$cost_column = array_search( 'cost', $header, true );
+		}
+
+		$id_column   = array_search( 'product_id', $header, true );
+		$sku_column  = array_search( 'sku', $header, true );
+		$mode_column = array_search( 'mode', $header, true );
+
+		if ( false === $cost_column || ( false === $id_column && false === $sku_column ) ) {
+			fclose( $handle );
+			wp_send_json_error(
+				array( 'message' => __( 'CSV must contain product_id or sku, plus defined_cost (or cost).', 'cogs-studio-for-woocommerce' ) ),
+				400
+			);
+		}
+
+		$updated = 0;
+		$skipped = 0;
+		$errors  = array();
+		$line    = 1;
+
+		while ( false !== ( $row = fgetcsv( $handle ) ) ) {
+			++$line;
+			if ( $line > 2001 ) {
+				$errors[] = __( 'Import stopped after 2,000 data rows.', 'cogs-studio-for-woocommerce' );
+				break;
+			}
+
+			if ( ! is_array( $row ) || 1 === count( $row ) && '' === trim( (string) $row[0] ) ) {
+				continue;
+			}
+
+			$product_id = false !== $id_column ? absint( $row[ $id_column ] ?? 0 ) : 0;
+			if ( $product_id <= 0 && false !== $sku_column ) {
+				$sku        = ltrim( sanitize_text_field( $row[ $sku_column ] ?? '' ), "'" );
+				$product_id = wc_get_product_id_by_sku( $sku );
+			}
+
+			if ( $product_id <= 0 ) {
+				++$skipped;
+				$errors[] = sprintf(
+					/* translators: %d: CSV row number. */
+					__( 'Row %d: product not found.', 'cogs-studio-for-woocommerce' ),
+					$line
+				);
+				continue;
+			}
+
+			try {
+				$product      = $this->cogs->get_product( $product_id );
+				$is_variation = method_exists( $product, 'set_cogs_value_is_additive' );
+				$mode         = false !== $mode_column ? sanitize_key( $row[ $mode_column ] ?? '' ) : '';
+				$raw_cost     = trim( sanitize_text_field( $row[ $cost_column ] ?? '' ) );
+				$cost         = null;
+
+				if ( $is_variation ) {
+					if ( '' === $mode ) {
+						$mode = '' === $raw_cost ? 'inherit' : 'override';
+					}
+					if ( ! in_array( $mode, array( 'inherit', 'override', 'additive' ), true ) ) {
+						throw new \RuntimeException( esc_html__( 'Invalid variation mode.', 'cogs-studio-for-woocommerce' ) );
+					}
+				}
+
+				if ( 'inherit' !== $mode && '' !== $raw_cost ) {
+					$normalized = wc_format_decimal( $raw_cost, 6 );
+					if ( '' === $normalized || ! is_numeric( $normalized ) || (float) $normalized < 0 ) {
+						throw new \RuntimeException( esc_html__( 'Invalid COGS value.', 'cogs-studio-for-woocommerce' ) );
+					}
+					$cost = (float) $normalized;
+				} elseif ( $is_variation && 'inherit' !== $mode ) {
+					throw new \RuntimeException( esc_html__( 'Override/additive variations require a COGS value.', 'cogs-studio-for-woocommerce' ) );
+				}
+
+				$this->cogs->set_cost( $product_id, $cost, 'csv-import', $is_variation ? $mode : null );
+				++$updated;
+			} catch ( \Throwable $e ) {
+				++$skipped;
+				$errors[] = sprintf(
+					/* translators: 1: CSV row number, 2: error message. */
+					__( 'Row %1$d: %2$s', 'cogs-studio-for-woocommerce' ),
+					$line,
+					$e->getMessage()
+				);
+			}
+		}
+
+		fclose( $handle );
+
+		wp_send_json_success(
+			array(
+				'updated' => $updated,
+				'skipped' => $skipped,
+				'errors'  => array_slice( $errors, 0, 30 ),
+			)
+		);
+	}
+
 	public function ajax_orders(): void {
 		check_ajax_referer( 'cogs_studio_admin', 'nonce' );
 		$this->guard_ajax();
