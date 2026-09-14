@@ -31,10 +31,16 @@ jobs:
         run: node --check assets/js/admin.js
 
   package:
-    needs: [php-lint, js-syntax]
+    needs: [php-lint, js-syntax, runtime-smoke]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve plugin version
+        id: version
+        run: |
+          VERSION=$(php -r '$c=file_get_contents("cost-of-goods.php"); preg_match("/^[[:space:]]*\\*[[:space:]]*Version:[[:space:]]*([^\\r\\n]+)/m", $c, $m); echo trim($m[1] ?? "");')
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Build installable plugin ZIP
         run: |
           mkdir -p dist/cogs-studio-for-woocommerce
@@ -44,11 +50,11 @@ jobs:
             --exclude 'tests' \
             --exclude 'dist'
           cd dist
-          zip -qr cogs-studio-for-woocommerce-v2.0.0.zip cogs-studio-for-woocommerce
+          zip -qr "cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}.zip" cogs-studio-for-woocommerce
       - uses: actions/upload-artifact@v4
         with:
-          name: cogs-studio-for-woocommerce-v2.0.0
-          path: dist/cogs-studio-for-woocommerce-v2.0.0.zip
+          name: cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}
+          path: dist/cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}.zip
           if-no-files-found: error
 
   runtime-smoke:
