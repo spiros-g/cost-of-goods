@@ -16,7 +16,7 @@ COGS Studio is a WooCommerce cost and profitability management layer built on th
 - Product profit and margin calculations
 - Recent order profitability using WooCommerce order COGS snapshots
 - Inventory cost, retail value, and potential gross profit dashboard
-- Cost change history for edits made through COGS Studio
+- Full native COGS audit history across COGS Studio, WooCommerce admin, REST API, WP-CLI, and other WooCommerce CRUD save paths
 - Safe migration from the legacy `cog_cost` product meta
 - HPOS compatibility declaration
 - Non-destructive uninstall behavior
