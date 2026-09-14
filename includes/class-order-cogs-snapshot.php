@@ -54,7 +54,7 @@ final class Order_COGS_Snapshot {
 
 	public function snapshot_order( WC_Order $order ): void {
 		foreach ( $order->get_items( 'line_item' ) as $item ) {
-			if ( metadata_exists( 'order_item', $item->get_id(), self::ITEM_META_KEY ) ) {
+			if ( $item->meta_exists( self::ITEM_META_KEY ) ) {
 				continue;
 			}
 
@@ -68,7 +68,7 @@ final class Order_COGS_Snapshot {
 	}
 
 	public function original_item_cogs( $item ): float {
-		if ( metadata_exists( 'order_item', $item->get_id(), self::ITEM_META_KEY ) ) {
+		if ( $item->meta_exists( self::ITEM_META_KEY ) ) {
 			return (float) $item->get_meta( self::ITEM_META_KEY, true );
 		}
 
