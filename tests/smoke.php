@@ -260,8 +260,14 @@ cogs_studio_smoke_assert(
 $service->set_cost( $missing_cogs_id, 0.0, 'smoke' );
 $missing_cogs = wc_get_product( $missing_cogs_id );
 cogs_studio_smoke_assert(
-	true === $has_defined_method->invoke( $admin, $missing_cogs ),
-	'Explicit zero COGS must be treated as defined.'
+	false === $has_defined_method->invoke( $admin, $missing_cogs ),
+	'Simple-product zero follows WooCommerce native null/undefined semantics.'
+);
+
+$zero_variation = wc_get_product( $zero_variation_id );
+cogs_studio_smoke_assert(
+	true === $has_defined_method->invoke( $admin, $zero_variation ),
+	'Explicit zero on a variation must remain a defined native COGS override.'
 );
 
 $inherit_filter_variation = new WC_Product_Variation();
