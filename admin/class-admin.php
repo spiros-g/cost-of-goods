@@ -188,7 +188,9 @@ final class Admin {
 			$period = '30';
 		}
 
-		$range     = $this->dashboard_range( $period );
+		$date_from = sanitize_text_field( wp_unslash( $_POST['date_from'] ?? '' ) );
+		$date_to   = sanitize_text_field( wp_unslash( $_POST['date_to'] ?? '' ) );
+		$range     = $this->dashboard_range( $period, $date_from, $date_to );
 		$cache_key = 'custom' === $period ? '' : 'period_' . $period;
 		$cache     = get_transient( Dashboard_Cache::TRANSIENT_KEY );
 
@@ -215,13 +217,13 @@ final class Admin {
 		wp_send_json_success( $data );
 	}
 
-	private function dashboard_range( string $period ): array {
+	private function dashboard_range( string $period, string $date_from = '', string $date_to = '' ): array {
 		$timezone = wp_timezone();
 		$now      = new \DateTimeImmutable( 'now', $timezone );
 
 		if ( 'custom' === $period ) {
-			$from = $this->parse_date_input( sanitize_text_field( wp_unslash( $_POST['date_from'] ?? '' ) ), false );
-			$to   = $this->parse_date_input( sanitize_text_field( wp_unslash( $_POST['date_to'] ?? '' ) ), true );
+			$from = $this->parse_date_input( $date_from, false );
+			$to   = $this->parse_date_input( $date_to, true );
 
 			if ( ! $from || ! $to || $from > $to ) {
 				wp_send_json_error( array( 'message' => __( 'Choose a valid custom date range.', 'cogs-studio-for-woocommerce' ) ), 400 );
@@ -694,15 +696,11 @@ final class Admin {
 		);
 		$rows = $this->filtered_product_rows( $filters );
 
-		$handle = fopen( 'php://temp', 'w+' );
-		if ( false === $handle ) {
-			wp_send_json_error( array( 'message' => __( 'Could not create CSV export.', 'cogs-studio-for-woocommerce' ) ), 500 );
-		}
+		$csv_rows   = array();
+		$csv_rows[] = $this->csv_line( array( 'product_id', 'sku', 'name', 'type', 'mode', 'defined_cost', 'effective_cost', 'price', 'margin' ) );
 
-		fputcsv( $handle, array( 'product_id', 'sku', 'name', 'type', 'mode', 'defined_cost', 'effective_cost', 'price', 'margin' ) );
 		foreach ( $rows as $row ) {
-			fputcsv(
-				$handle,
+			$csv_rows[] = $this->csv_line(
 				array(
 					$row['id'],
 					$this->csv_safe_cell( (string) $row['sku'] ),
@@ -717,17 +715,27 @@ final class Admin {
 			);
 		}
 
-		rewind( $handle );
-		$csv = stream_get_contents( $handle );
-		fclose( $handle );
+		$csv = implode( "\r\n", $csv_rows ) . "\r\n";
 
 		wp_send_json_success(
 			array(
 				'filename' => 'cogs-studio-' . wp_date( 'Y-m-d-His' ) . '.csv',
-				'content'  => base64_encode( (string) $csv ),
+				'content'  => base64_encode( $csv ),
 				'count'    => count( $rows ),
 			)
 		);
+	}
+
+	private function csv_line( array $fields ): string {
+		$escaped = array_map(
+			static function ( $field ): string {
+				$value = (string) $field;
+				return '"' . str_replace( '"', '""', $value ) . '"';
+			},
+			$fields
+		);
+
+		return implode( ',', $escaped );
 	}
 
 	private function csv_safe_cell( string $value ): string {
@@ -739,8 +747,8 @@ final class Admin {
 		$this->guard_ajax();
 		$this->guard_cogs_enabled();
 
-		$csv = wp_unslash( $_POST['csv'] ?? '' );
-		if ( ! is_string( $csv ) || '' === trim( $csv ) ) {
+		$csv = sanitize_textarea_field( wp_unslash( $_POST['csv'] ?? '' ) );
+		if ( '' === trim( $csv ) ) {
 			wp_send_json_error( array( 'message' => __( 'Choose a non-empty CSV file.', 'cogs-studio-for-woocommerce' ) ), 400 );
 		}
 
@@ -748,17 +756,15 @@ final class Admin {
 			wp_send_json_error( array( 'message' => __( 'CSV file is too large. Maximum size is 2 MB.', 'cogs-studio-for-woocommerce' ) ), 413 );
 		}
 
-		$handle = fopen( 'php://temp', 'w+' );
-		if ( false === $handle ) {
-			wp_send_json_error( array( 'message' => __( 'Could not read CSV import.', 'cogs-studio-for-woocommerce' ) ), 500 );
+		$lines = preg_split( '/\r\n|\r|\n/', $csv );
+		if ( ! is_array( $lines ) || empty( $lines ) ) {
+			wp_send_json_error( array( 'message' => __( 'CSV header is missing.', 'cogs-studio-for-woocommerce' ) ), 400 );
 		}
 
-		fwrite( $handle, $csv );
-		rewind( $handle );
+		$header_line = array_shift( $lines );
+		$header      = str_getcsv( (string) $header_line );
 
-		$header = fgetcsv( $handle );
 		if ( ! is_array( $header ) ) {
-			fclose( $handle );
 			wp_send_json_error( array( 'message' => __( 'CSV header is missing.', 'cogs-studio-for-woocommerce' ) ), 400 );
 		}
 
@@ -780,7 +786,6 @@ final class Admin {
 		$mode_column = array_search( 'mode', $header, true );
 
 		if ( false === $cost_column || ( false === $id_column && false === $sku_column ) ) {
-			fclose( $handle );
 			wp_send_json_error(
 				array( 'message' => __( 'CSV must contain product_id or sku, plus defined_cost (or cost).', 'cogs-studio-for-woocommerce' ) ),
 				400
@@ -790,16 +795,21 @@ final class Admin {
 		$updated = 0;
 		$skipped = 0;
 		$errors  = array();
-		$line    = 1;
 
-		while ( false !== ( $row = fgetcsv( $handle ) ) ) {
-			++$line;
+		foreach ( $lines as $index => $line_value ) {
+			$line = $index + 2;
+
 			if ( $line > 2001 ) {
 				$errors[] = __( 'Import stopped after 2,000 data rows.', 'cogs-studio-for-woocommerce' );
 				break;
 			}
 
-			if ( ! is_array( $row ) || 1 === count( $row ) && '' === trim( (string) $row[0] ) ) {
+			if ( '' === trim( (string) $line_value ) ) {
+				continue;
+			}
+
+			$row = str_getcsv( (string) $line_value );
+			if ( ! is_array( $row ) ) {
 				continue;
 			}
 
@@ -857,8 +867,6 @@ final class Admin {
 				);
 			}
 		}
-
-		fclose( $handle );
 
 		wp_send_json_success(
 			array(
