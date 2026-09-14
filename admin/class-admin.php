@@ -166,8 +166,18 @@ final class Admin {
 		}
 	}
 
+	private function guard_cogs_enabled(): void {
+		if ( ! $this->compatibility->cogs_enabled() ) {
+			wp_send_json_error(
+				array( 'message' => __( 'Enable WooCommerce Cost of Goods Sold before using profitability data.', 'cogs-studio-for-woocommerce' ) ),
+				409
+			);
+		}
+	}
+
 	public function ajax_dashboard(): void {
 		$this->guard_ajax();
+		$this->guard_cogs_enabled();
 
 		$cached = get_transient( Dashboard_Cache::TRANSIENT_KEY );
 		if ( is_array( $cached ) ) {
@@ -289,6 +299,7 @@ final class Admin {
 
 	public function ajax_products(): void {
 		$this->guard_ajax();
+		$this->guard_cogs_enabled();
 
 		$page   = max( 1, absint( $_POST['page'] ?? 1 ) );
 		$search = sanitize_text_field( wp_unslash( $_POST['search'] ?? '' ) );
@@ -360,6 +371,7 @@ final class Admin {
 
 	public function ajax_save_cost(): void {
 		$this->guard_ajax();
+		$this->guard_cogs_enabled();
 
 		$product_id = absint( $_POST['product_id'] ?? 0 );
 		$raw_cost   = isset( $_POST['cost'] ) ? trim( (string) wp_unslash( $_POST['cost'] ) ) : '';
@@ -422,6 +434,7 @@ final class Admin {
 
 	public function ajax_orders(): void {
 		$this->guard_ajax();
+		$this->guard_cogs_enabled();
 
 		$page = max( 1, absint( $_POST['page'] ?? 1 ) );
 
