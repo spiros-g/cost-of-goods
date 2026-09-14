@@ -2,8 +2,7 @@
 
 namespace COGS_Studio;
 
-use Automattic\WooCommerce\Internal\Features\FeaturesController;
-use Throwable;
+use Automattic\WooCommerce\Utilities\FeaturesUtil;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -20,15 +19,11 @@ final class Compatibility {
 	}
 
 	public function cogs_enabled(): bool {
-		if ( ! $this->supported_woocommerce() || ! class_exists( FeaturesController::class ) || ! function_exists( 'wc_get_container' ) ) {
+		if ( ! $this->supported_woocommerce() || ! class_exists( FeaturesUtil::class ) ) {
 			return false;
 		}
 
-		try {
-			return (bool) wc_get_container()->get( FeaturesController::class )->feature_is_enabled( 'cost_of_goods_sold' );
-		} catch ( Throwable $e ) {
-			return false;
-		}
+		return FeaturesUtil::feature_is_enabled( 'cost_of_goods_sold' );
 	}
 
 	public function status(): array {
