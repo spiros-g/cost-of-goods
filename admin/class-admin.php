@@ -874,20 +874,41 @@ final class Admin {
 		$this->guard_ajax();
 		$this->guard_cogs_enabled();
 
-		$page = max( 1, absint( $_POST['page'] ?? 1 ) );
+		$page        = max( 1, absint( $_POST['page'] ?? 1 ) );
+		$status      = sanitize_key( wp_unslash( $_POST['status'] ?? '' ) );
+		$date_from   = sanitize_text_field( wp_unslash( $_POST['date_from'] ?? '' ) );
+		$date_to     = sanitize_text_field( wp_unslash( $_POST['date_to'] ?? '' ) );
+		$all_statuses = array_values( array_unique( array_merge( wc_get_is_paid_statuses(), array( 'refunded' ) ) ) );
 
-		$statuses = array_values( array_unique( array_merge( wc_get_is_paid_statuses(), array( 'refunded' ) ) ) );
+		if ( '' !== $status && ! in_array( $status, $all_statuses, true ) ) {
+			wp_send_json_error( array( 'message' => __( 'Choose a valid realized order status.', 'cogs-studio-for-woocommerce' ) ), 400 );
+		}
 
-		$result = wc_get_orders(
-			array(
-				'limit'    => 25,
-				'page'     => $page,
-				'paginate' => true,
-				'status'   => $statuses,
-				'orderby'  => 'date',
-				'order'    => 'DESC',
-			)
+		$args = array(
+			'limit'    => 25,
+			'page'     => $page,
+			'paginate' => true,
+			'status'   => '' !== $status ? array( $status ) : $all_statuses,
+			'orderby'  => 'date',
+			'order'    => 'DESC',
 		);
+
+		$from = '' !== $date_from ? $this->parse_date_input( $date_from, false ) : null;
+		$to   = '' !== $date_to ? $this->parse_date_input( $date_to, true ) : null;
+
+		if ( '' !== $date_from && ! $from || '' !== $date_to && ! $to || $from && $to && $from > $to ) {
+			wp_send_json_error( array( 'message' => __( 'Choose a valid order date range.', 'cogs-studio-for-woocommerce' ) ), 400 );
+		}
+
+		if ( $from && $to ) {
+			$args['date_created'] = $from->format( 'Y-m-d H:i:s' ) . '...' . $to->format( 'Y-m-d H:i:s' );
+		} elseif ( $from ) {
+			$args['date_created'] = '>=' . $from->format( 'Y-m-d H:i:s' );
+		} elseif ( $to ) {
+			$args['date_created'] = '<=' . $to->format( 'Y-m-d H:i:s' );
+		}
+
+		$result = wc_get_orders( $args );
 
 		$rows = array();
 		foreach ( $result->orders as $order ) {
@@ -912,12 +933,18 @@ final class Admin {
 			);
 		}
 
+		$status_options = array();
+		foreach ( $all_statuses as $status_key ) {
+			$status_options[ $status_key ] = wc_get_order_status_name( $status_key );
+		}
+
 		wp_send_json_success(
 			array(
-				'rows'        => $rows,
-				'page'        => $page,
-				'total_pages' => (int) $result->max_num_pages,
-				'total'       => (int) $result->total,
+				'rows'            => $rows,
+				'page'            => $page,
+				'total_pages'     => max( 1, (int) $result->max_num_pages ),
+				'total'           => (int) $result->total,
+				'status_options'  => $status_options,
 			)
 		);
 	}
