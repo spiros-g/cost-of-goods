@@ -47,14 +47,14 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Build installable plugin ZIP
         run: |
-          mkdir -p dist/cogs-studio-for-woocommerce
-          rsync -a ./ dist/cogs-studio-for-woocommerce/ \
+          mkdir -p dist/cost-of-goods
+          rsync -a ./ dist/cost-of-goods/ \
             --exclude '.git' \
             --exclude '.github' \
             --exclude 'tests' \
             --exclude 'dist'
           cd dist
-          zip -qr "cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}.zip" cogs-studio-for-woocommerce
+          zip -qr "cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}.zip" cost-of-goods
       - uses: actions/upload-artifact@v4
         with:
           name: cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}
@@ -105,12 +105,12 @@ jobs:
       - name: Install COGS Studio
         run: |
           cd /tmp/cogs-studio-wp
-          mkdir -p wp-content/plugins/cogs-studio-for-woocommerce
-          rsync -a "$GITHUB_WORKSPACE/" wp-content/plugins/cogs-studio-for-woocommerce/ \
+          mkdir -p wp-content/plugins/cost-of-goods
+          rsync -a "$GITHUB_WORKSPACE/" wp-content/plugins/cost-of-goods/ \
             --exclude '.git' \
             --exclude 'dist'
-          wp plugin activate cogs-studio-for-woocommerce
+          wp plugin activate cost-of-goods
       - name: Run COGS runtime smoke test
         run: |
           cd /tmp/cogs-studio-wp
-          wp eval-file wp-content/plugins/cogs-studio-for-woocommerce/tests/smoke.php
+          wp eval-file wp-content/plugins/cost-of-goods/tests/smoke.php
