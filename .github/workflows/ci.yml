@@ -16,7 +16,7 @@ jobs:
       matrix:
         php: ['8.1', '8.2', '8.3', '8.4']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -27,7 +27,7 @@ jobs:
   js-syntax:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -35,10 +35,10 @@ jobs:
         run: node --check assets/js/admin.js
 
   package:
-    needs: [php-lint, js-syntax, runtime-smoke]
+    needs: [php-lint, js-syntax, runtime-smoke, plugin-check]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Resolve plugin version
         id: version
         run: |
@@ -65,21 +65,8 @@ jobs:
           unzip -l "dist/cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}.zip" | grep "cogs-studio-for-woocommerce/cogs-studio-for-woocommerce.php"
           ! unzip -l "dist/cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}.zip" | grep -q "cost-of-goods.php"
 
-  runtime-smoke:
-    name: runtime-smoke (${{ matrix.name }})
+  plugin-check:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: minimum
-            wordpress: '6.7'
-            woocommerce: '10.3.0'
-            php: '8.1'
-          - name: current
-            wordpress: 'latest'
-            woocommerce: 'latest'
-            php: '8.3'
     services:
       mysql:
         image: mysql:8.0
@@ -94,7 +81,66 @@ jobs:
           --health-timeout=5s
           --health-retries=10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: wp-cli
+      - name: Install WordPress and Plugin Check
+        run: |
+          mkdir -p /tmp/cogs-studio-plugin-check
+          cd /tmp/cogs-studio-plugin-check
+          wp core download --quiet
+          wp config create --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --skip-check
+          wp core install --url=http://localhost --title="COGS Studio Plugin Check" --admin_user=admin --admin_password=password --admin_email=ci@example.com --skip-email
+          wp plugin install plugin-check --activate
+      - name: Install COGS Studio source
+        run: |
+          cd /tmp/cogs-studio-plugin-check
+          mkdir -p wp-content/plugins/cogs-studio-for-woocommerce
+          rsync -a "$GITHUB_WORKSPACE/" wp-content/plugins/cogs-studio-for-woocommerce/ \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'tests' \
+            --exclude 'dist'
+      - name: Run WordPress Plugin Check
+        run: |
+          cd /tmp/cogs-studio-plugin-check
+          wp plugin check cogs-studio-for-woocommerce
+
+  runtime-smoke:
+    name: runtime-smoke (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: minimum-legacy-storage
+            wordpress: '6.7'
+            woocommerce: '10.3.0'
+            php: '8.1'
+            hpos: 'no'
+          - name: current-hpos
+            wordpress: 'latest'
+            woocommerce: 'latest'
+            php: '8.3'
+            hpos: 'yes'
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -120,6 +166,7 @@ jobs:
             wp plugin install woocommerce --version="${{ matrix.woocommerce }}" --activate
           fi
           wp option update woocommerce_feature_cost_of_goods_sold_enabled yes
+          wp option update woocommerce_custom_orders_table_enabled "${{ matrix.hpos }}"
       - name: Install COGS Studio
         run: |
           cd /tmp/cogs-studio-wp
@@ -129,6 +176,8 @@ jobs:
             --exclude 'dist'
           wp plugin activate cogs-studio-for-woocommerce
       - name: Run COGS runtime smoke test
+        env:
+          COGS_EXPECT_HPOS: ${{ matrix.hpos }}
         run: |
           cd /tmp/cogs-studio-wp
           wp eval-file wp-content/plugins/cogs-studio-for-woocommerce/tests/smoke.php
