@@ -3,6 +3,7 @@ name: PHP checks
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   php-lint:
@@ -28,3 +29,23 @@ jobs:
           node-version: '22'
       - name: Check admin JavaScript syntax
         run: node --check assets/js/admin.js
+
+  package:
+    needs: [php-lint, js-syntax]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build installable plugin ZIP
+        run: |
+          mkdir -p dist/cogs-studio-for-woocommerce
+          rsync -a ./ dist/cogs-studio-for-woocommerce/ \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'dist'
+          cd dist
+          zip -qr cogs-studio-for-woocommerce-v2.0.0.zip cogs-studio-for-woocommerce
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cogs-studio-for-woocommerce-v2.0.0
+          path: dist/cogs-studio-for-woocommerce-v2.0.0.zip
+          if-no-files-found: error
