@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.0
+
+- Added global native COGS audit tracking for WooCommerce product saves.
+- Cost History now captures changes made through COGS Studio, WooCommerce admin, REST API, WP-CLI, and other WooCommerce CRUD save paths.
+- Prevented duplicate audit entries by routing COGS Studio writes through the same observer.
+- Added audit source tracking and regression coverage.
+- Made CI package names derive automatically from the plugin version.
+
 ## 2.0.0
 
 - Rebuilt the plugin around WooCommerce native COGS.

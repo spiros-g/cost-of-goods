@@ -5,6 +5,23 @@ namespace COGS_Studio;
 defined( 'ABSPATH' ) || exit;
 
 final class Cost_History {
+	private static ?string $source_context = null;
+
+	public static function current_source(): ?string {
+		return self::$source_context;
+	}
+
+	public function with_source( string $source, callable $callback ): mixed {
+		$previous             = self::$source_context;
+		self::$source_context = sanitize_key( $source );
+
+		try {
+			return $callback();
+		} finally {
+			self::$source_context = $previous;
+		}
+	}
+
 	public static function table_name(): string {
 		global $wpdb;
 		return $wpdb->prefix . 'cogs_studio_history';

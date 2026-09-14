@@ -32,6 +32,35 @@ $service->set_cost( $simple_id, 40.0, 'smoke' );
 $simple = wc_get_product( $simple_id );
 cogs_studio_smoke_assert( abs( $simple->get_cogs_total_value() - 40.0 ) < 0.0001, 'Simple product COGS should equal 40.' );
 
+$simple_history = array_values(
+	array_filter(
+		$history->recent( 200 ),
+		static fn ( array $entry ): bool => (int) $entry['product_id'] === $simple_id
+	)
+);
+cogs_studio_smoke_assert( 1 === count( $simple_history ), 'COGS Studio save should create exactly one audit entry.' );
+cogs_studio_smoke_assert( 'smoke' === $simple_history[0]['source'], 'COGS Studio audit source should be preserved.' );
+cogs_studio_smoke_assert( null === $simple_history[0]['old_cost'], 'Initial native COGS should be null in history.' );
+cogs_studio_smoke_assert( abs( (float) $simple_history[0]['new_cost'] - 40.0 ) < 0.0001, 'COGS Studio audit new cost should equal 40.' );
+
+$external = new WC_Product_Simple();
+$external->set_name( 'COGS Studio External Audit' );
+$external->set_status( 'publish' );
+$external->set_regular_price( '50' );
+$external_id = $external->save();
+$external->set_cogs_value( 12.0 );
+$external->save();
+
+$external_history = array_values(
+	array_filter(
+		$history->recent( 200 ),
+		static fn ( array $entry ): bool => (int) $entry['product_id'] === $external_id
+	)
+);
+cogs_studio_smoke_assert( 1 === count( $external_history ), 'External WooCommerce save should create one audit entry.' );
+cogs_studio_smoke_assert( 'wp-cli' === $external_history[0]['source'], 'WP-CLI COGS save should be identified as wp-cli.' );
+cogs_studio_smoke_assert( abs( (float) $external_history[0]['new_cost'] - 12.0 ) < 0.0001, 'External audit new cost should equal 12.' );
+
 $parent = new WC_Product_Variable();
 $parent->set_name( 'COGS Studio Smoke Variable' );
 $parent->set_status( 'publish' );

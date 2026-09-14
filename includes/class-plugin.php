@@ -26,6 +26,8 @@ final class Plugin {
 
 		$compatibility = new Compatibility();
 		$history       = new Cost_History();
+		$audit         = new Product_Cost_Audit( $history );
+		$audit->register();
 		$cogs          = new COGS_Service( $compatibility, $history );
 		$profit        = new Profit_Calculator( $cogs );
 		$migrator      = new Migrator( $cogs );

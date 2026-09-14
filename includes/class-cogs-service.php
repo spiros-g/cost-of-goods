@@ -66,9 +66,6 @@ final class COGS_Service {
 			throw new RuntimeException( __( 'This WooCommerce version does not expose the native COGS API.', 'cogs-studio-for-woocommerce' ) );
 		}
 
-		$old_cost = $this->nominal_cost( $product );
-		$old_mode = $this->variation_mode( $product );
-
 		if ( method_exists( $product, 'set_cogs_value_is_additive' ) && null !== $variation_mode ) {
 			if ( ! in_array( $variation_mode, array( 'inherit', 'override', 'additive' ), true ) ) {
 				throw new RuntimeException( __( 'Invalid variation COGS mode.', 'cogs-studio-for-woocommerce' ) );
@@ -82,15 +79,14 @@ final class COGS_Service {
 		}
 
 		$product->set_cogs_value( $cost );
-		$product->save();
+		$this->history->with_source(
+			$source,
+			static function () use ( $product ): void {
+				$product->save();
+			}
+		);
 
 		$reloaded = $this->get_product( $product_id );
-		$new_cost = $this->nominal_cost( $reloaded );
-		$new_mode = $this->variation_mode( $reloaded );
-		$mode_changed = $old_mode !== $new_mode;
-		$history_source = $mode_changed && 'simple' !== $new_mode ? $source . '-' . $new_mode : $source;
-
-		$this->history->log( $product_id, $old_cost, $new_cost, $history_source, $mode_changed );
 		$this->clear_caches();
 
 		return $reloaded;
