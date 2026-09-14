@@ -233,4 +233,99 @@ $order_product->set_regular_price( '105' );
 $order_product->save();
 cogs_studio_smoke_assert( false === get_transient( COGS_Studio\Dashboard_Cache::TRANSIENT_KEY ), 'Product profitability changes must invalidate the dashboard cache.' );
 
+// v2.2 management semantics.
+if ( ! class_exists( 'COGS_Studio\\Admin' ) ) {
+	require_once COGS_STUDIO_PATH . 'admin/class-admin.php';
+}
+$admin = new COGS_Studio\Admin( $compatibility, $service, $profit_calculator, $history );
+
+$has_defined_method = new ReflectionMethod( COGS_Studio\Admin::class, 'product_has_defined_cogs' );
+$matches_method     = new ReflectionMethod( COGS_Studio\Admin::class, 'product_matches_filters' );
+$range_method       = new ReflectionMethod( COGS_Studio\Admin::class, 'dashboard_range' );
+$csv_line_method    = new ReflectionMethod( COGS_Studio\Admin::class, 'csv_line' );
+$csv_safe_method    = new ReflectionMethod( COGS_Studio\Admin::class, 'csv_safe_cell' );
+
+$missing_cogs = new WC_Product_Simple();
+$missing_cogs->set_name( 'COGS Studio Missing COGS' );
+$missing_cogs->set_status( 'publish' );
+$missing_cogs->set_regular_price( '25' );
+$missing_cogs_id = $missing_cogs->save();
+$missing_cogs = wc_get_product( $missing_cogs_id );
+
+cogs_studio_smoke_assert(
+	false === $has_defined_method->invoke( $admin, $missing_cogs ),
+	'Product without nominal native COGS must be reported as undefined.'
+);
+
+$service->set_cost( $missing_cogs_id, 0.0, 'smoke' );
+$missing_cogs = wc_get_product( $missing_cogs_id );
+cogs_studio_smoke_assert(
+	false === $has_defined_method->invoke( $admin, $missing_cogs ),
+	'Simple-product zero follows WooCommerce native null/undefined semantics.'
+);
+
+$zero_variation = wc_get_product( $zero_variation_id );
+cogs_studio_smoke_assert(
+	true === $has_defined_method->invoke( $admin, $zero_variation ),
+	'Explicit zero on a variation must remain a defined native COGS override.'
+);
+
+$inherit_filter_variation = new WC_Product_Variation();
+$inherit_filter_variation->set_parent_id( $parent_id );
+$inherit_filter_variation->set_status( 'publish' );
+$inherit_filter_variation->set_regular_price( '80' );
+$inherit_filter_variation_id = $inherit_filter_variation->save();
+$service->set_cost( $inherit_filter_variation_id, null, 'smoke', 'inherit' );
+$inherit_filter_variation = wc_get_product( $inherit_filter_variation_id );
+
+cogs_studio_smoke_assert(
+	true === $has_defined_method->invoke( $admin, $inherit_filter_variation ),
+	'Variation inheriting a defined parent COGS must be treated as defined.'
+);
+
+$filter_defaults = array(
+	'search'       => '',
+	'category'     => 0,
+	'type'         => '',
+	'stock_status' => '',
+	'cogs_state'   => '',
+	'margin_max'   => null,
+);
+
+$simple_for_filter = wc_get_product( $simple_id );
+cogs_studio_smoke_assert(
+	true === $matches_method->invoke( $admin, $simple_for_filter, array_merge( $filter_defaults, array( 'margin_max' => 60.0 ) ) ),
+	'60 percent margin product should match a 60 percent maximum-margin filter.'
+);
+cogs_studio_smoke_assert(
+	false === $matches_method->invoke( $admin, $simple_for_filter, array_merge( $filter_defaults, array( 'margin_max' => 59.0 ) ) ),
+	'60 percent margin product should not match a 59 percent maximum-margin filter.'
+);
+
+$category = wp_insert_term( 'COGS Studio Test Category', 'product_cat' );
+cogs_studio_smoke_assert( ! is_wp_error( $category ), 'Test product category should be created.' );
+wp_set_object_terms( $parent_id, array( (int) $category['term_id'] ), 'product_cat' );
+
+cogs_studio_smoke_assert(
+	true === $matches_method->invoke(
+		$admin,
+		$inherit_filter_variation,
+		array_merge( $filter_defaults, array( 'category' => (int) $category['term_id'] ) )
+	),
+	'Variation category filter should inherit category matching from the parent product.'
+);
+
+$custom_range = $range_method->invoke( $admin, 'custom', '2026-09-01', '2026-09-14' );
+cogs_studio_smoke_assert( '2026-09-01 00:00:00' === $custom_range['after'], 'Custom dashboard range should start at local day start.' );
+cogs_studio_smoke_assert( '2026-09-14 23:59:59' === $custom_range['before'], 'Custom dashboard range should end at local day end.' );
+
+cogs_studio_smoke_assert(
+	"'=danger" === $csv_safe_method->invoke( $admin, '=danger' ),
+	'CSV export must guard formula-like text cells.'
+);
+cogs_studio_smoke_assert(
+	'"1","A ""quoted"" value"' === $csv_line_method->invoke( $admin, array( 1, 'A "quoted" value' ) ),
+	'CSV serializer must escape quotes according to CSV rules.'
+);
+
 echo "COGS Studio runtime smoke test passed.\n";
