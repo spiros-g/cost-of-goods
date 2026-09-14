@@ -108,7 +108,9 @@ final class Admin {
 		}
 
 		if ( ! $status['wc_supported'] ) {
-			echo '<div class="notice notice-error"><p><strong>COGS Studio:</strong> ' . esc_html( sprintf( __( 'WooCommerce %s or newer is required.', 'cogs-studio-for-woocommerce' ), Compatibility::MIN_WC_VERSION ) ) . '</p></div>';
+			/* translators: %s: minimum supported WooCommerce version. */
+			$message = sprintf( __( 'WooCommerce %s or newer is required.', 'cogs-studio-for-woocommerce' ), Compatibility::MIN_WC_VERSION );
+			echo '<div class="notice notice-error"><p><strong>COGS Studio:</strong> ' . esc_html( $message ) . '</p></div>';
 			return;
 		}
 
@@ -159,8 +161,6 @@ final class Admin {
 	}
 
 	private function guard_ajax(): void {
-		check_ajax_referer( 'cogs_studio_admin', 'nonce' );
-
 		if ( ! current_user_can( 'manage_woocommerce' ) ) {
 			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'cogs-studio-for-woocommerce' ) ), 403 );
 		}
@@ -176,6 +176,7 @@ final class Admin {
 	}
 
 	public function ajax_dashboard(): void {
+		check_ajax_referer( 'cogs_studio_admin', 'nonce' );
 		$this->guard_ajax();
 		$this->guard_cogs_enabled();
 
@@ -298,6 +299,7 @@ final class Admin {
 	}
 
 	public function ajax_products(): void {
+		check_ajax_referer( 'cogs_studio_admin', 'nonce' );
 		$this->guard_ajax();
 		$this->guard_cogs_enabled();
 
@@ -370,11 +372,12 @@ final class Admin {
 	}
 
 	public function ajax_save_cost(): void {
+		check_ajax_referer( 'cogs_studio_admin', 'nonce' );
 		$this->guard_ajax();
 		$this->guard_cogs_enabled();
 
 		$product_id = absint( $_POST['product_id'] ?? 0 );
-		$raw_cost   = isset( $_POST['cost'] ) ? trim( (string) wp_unslash( $_POST['cost'] ) ) : '';
+		$raw_cost   = isset( $_POST['cost'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['cost'] ) ) ) : '';
 		$mode       = sanitize_key( wp_unslash( $_POST['mode'] ?? '' ) );
 
 		if ( $product_id <= 0 ) {
@@ -433,6 +436,7 @@ final class Admin {
 	}
 
 	public function ajax_orders(): void {
+		check_ajax_referer( 'cogs_studio_admin', 'nonce' );
 		$this->guard_ajax();
 		$this->guard_cogs_enabled();
 
@@ -485,6 +489,7 @@ final class Admin {
 	}
 
 	public function ajax_history(): void {
+		check_ajax_referer( 'cogs_studio_admin', 'nonce' );
 		$this->guard_ajax();
 
 		$rows = array();
@@ -508,6 +513,7 @@ final class Admin {
 	}
 
 	public function ajax_system(): void {
+		check_ajax_referer( 'cogs_studio_admin', 'nonce' );
 		$this->guard_ajax();
 
 		wp_send_json_success(
