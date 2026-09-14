@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: COGS Studio for WooCommerce
- * Plugin URI: https://github.com/spiros-g/cost-of-goods
+ * Plugin URI: https://github.com/spiros-g/COGS-Studio-for-WooCommerce
  * Description: Cost management, profitability insights, stock valuation, and legacy COGS migration built on WooCommerce's native Cost of Goods Sold API.
  * Version: 2.1.0
  * Author: Spiros G.
