@@ -1,12 +1,13 @@
 <?php
 /**
- * Plugin Name: COGS Studio for WooCommerce
- * Plugin URI: https://github.com/spiros-g/COGS-Studio-for-WooCommerce
+ * Plugin Name: SG Cost Manager
+ * Plugin URI: https://github.com/spiros-g/sg-cost-manager
  * Description: Native WooCommerce COGS management, profitability insights, stock valuation, and cost audit history.
- * Version: 2.3.0
+ * Version: 2.3.1
  * Author: Spiros G.
  * Author URI: https://spirosg.dev/
  * Text Domain: cogs-studio-for-woocommerce
+ * Update URI: https://github.com/spiros-g/sg-cost-manager
  * Requires at least: 6.7
  * Requires PHP: 8.1
  * Requires Plugins: woocommerce
@@ -18,7 +19,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'COGS_STUDIO_VERSION', '2.3.0' );
+define( 'COGS_STUDIO_VERSION', '2.3.1' );
 define( 'COGS_STUDIO_FILE', __FILE__ );
 define( 'COGS_STUDIO_PATH', plugin_dir_path( __FILE__ ) );
 define( 'COGS_STUDIO_URL', plugin_dir_url( __FILE__ ) );
