@@ -1,6 +1,13 @@
-# COGS Studio for WooCommerce
+# SG Cost Manager
 
-COGS Studio is a WooCommerce cost and profitability management layer built on the **native WooCommerce Cost of Goods Sold (COGS) API**.
+SG Cost Manager is a WooCommerce cost and profitability management layer built on the **native WooCommerce Cost of Goods Sold (COGS) API**.
+
+## SG Plugins identity
+
+- Product name: **SG Cost Manager**
+- Repository: `spiros-g/sg-cost-manager`
+- Legacy install folder/text domain/COGS_Studio namespace are preserved for compatibility.
+- Release artifact: `sg-cost-manager-vX.Y.Z.zip`
 
 ## Requirements
 
@@ -9,14 +16,14 @@ COGS Studio is a WooCommerce cost and profitability management layer built on th
 - WooCommerce 10.3+
 - WooCommerce **Cost of Goods Sold** enabled under **WooCommerce → Settings → Advanced → Features**
 
-## What v2.3.0 includes
+## What v2.3.1 includes
 
 - Native WooCommerce COGS as the only cost source of truth
 - AJAX product/variation cost manager
 - Product profit and margin calculations
 - Historical order profitability using immutable order-item COGS snapshots, including quantity refunds
 - Inventory cost, retail value, and potential gross profit dashboard
-- Full native COGS audit history across COGS Studio, WooCommerce admin, REST API, WP-CLI, and other WooCommerce CRUD save paths
+- Full native COGS audit history across SG Cost Manager, WooCommerce admin, REST API, WP-CLI, and other WooCommerce CRUD save paths
 - HPOS compatibility declaration
 - Non-destructive uninstall behavior
 - Dashboard profitability periods: 7 / 30 / 90 days and custom date ranges
@@ -32,7 +39,7 @@ Product gross profit is:
 
 `current product price - effective native COGS`
 
-Order profitability uses product line totals after item-level refunds and excludes tax and shipping. COGS Studio preserves the original native line-item COGS on realized orders and reduces it by refunded quantity, preventing later product-cost changes from re-pricing historical gross profit.
+Order profitability uses product line totals after item-level refunds and excludes tax and shipping. SG Cost Manager preserves the original native line-item COGS on realized orders and reduces it by refunded quantity, preventing later product-cost changes from re-pricing historical gross profit.
 
 ## Plugin identity
 
@@ -40,7 +47,7 @@ Order profitability uses product line totals after item-level refunds and exclud
 
 ## Repository
 
-https://github.com/spiros-g/COGS-Studio-for-WooCommerce
+https://github.com/spiros-g/sg-cost-manager
 
 ## Development
 
@@ -58,18 +65,16 @@ GPL-3.0-or-later.
 
 ## Releases
 
-Releases are published automatically from the `main` branch after the full **PHP checks** workflow succeeds.
+Releases are published only from explicit semantic version tags such as `v2.3.1`.
 
 The release workflow:
 
-- verifies that the successful CI commit is still the current `main` commit;
 - validates that the plugin header version matches the `readme.txt` stable tag;
-- skips versions that already have a GitHub Release;
 - builds the production ZIP with the canonical `cogs-studio-for-woocommerce/` root;
 - excludes tests, GitHub workflow files, development files, and legacy plugin identities;
 - validates ZIP integrity and package identity;
 - generates a SHA-256 checksum;
-- creates the `vX.Y.Z` tag and GitHub Release;
+- validates that the pushed `vX.Y.Z` tag matches the plugin version and creates the GitHub Release;
 - attaches the installable ZIP and `SHA256SUMS.txt`.
 
-To publish a new version, update the plugin version, `readme.txt` stable tag, and changelog, then merge to `main`. A release is created only after the main CI suite passes.
+To publish a new version, update the plugin version, `readme.txt` stable tag and changelog, validate the exact commit, then create the matching `vX.Y.Z` tag.
