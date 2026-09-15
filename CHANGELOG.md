@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.3.1
+
+- Standardized the public product identity as SG Cost Manager.
+- Updated Plugin URI / Update URI to `spiros-g/sg-cost-manager`.
+- Preserved the `cogs-studio-for-woocommerce` install folder, COGS_Studio namespace, text domain and WooCommerce native COGS behavior.
+- Replaced automatic main-branch releases with the common SG Plugins tag-driven release contract.
+
 ## 2.3.0
 
 - Aligned the full admin interface with the shared WC Analytics Bridge design system.
