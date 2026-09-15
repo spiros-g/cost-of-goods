@@ -9,7 +9,7 @@ COGS Studio is a WooCommerce cost and profitability management layer built on th
 - WooCommerce 10.3+
 - WooCommerce **Cost of Goods Sold** enabled under **WooCommerce → Settings → Advanced → Features**
 
-## What v2.2.0 includes
+## What v2.3.0 includes
 
 - Native WooCommerce COGS as the only cost source of truth
 - AJAX product/variation cost manager
@@ -24,6 +24,7 @@ COGS Studio is a WooCommerce cost and profitability management layer built on th
 - Bulk COGS editing with variation-safe clear/inherit semantics
 - CSV export/import with validation and audit source tracking
 - Order profitability filters by realized status and date range
+- Shared SpirosG WooCommerce admin design system based on WC Analytics Bridge
 
 ## Profit calculation basis
 

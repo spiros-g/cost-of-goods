@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.0
+
+- Aligned the full admin interface with the shared WC Analytics Bridge design system.
+- Added the canonical dark-violet app header, version/readiness pills, violet navigation, card radii, shadows and semantic colors.
+- Restyled KPI cards, toolbars, filters, tables, bulk actions, system cards and form focus states without changing business logic.
+
 ## 2.2.0
 
 - Added selectable dashboard profitability periods for 7, 30, 90 days, plus custom date ranges.

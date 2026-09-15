@@ -4,7 +4,7 @@ Tags: woocommerce, cogs, cost of goods, profit, inventory
 Requires at least: 6.7
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 2.2.0
+Stable tag: 2.3.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -17,6 +17,13 @@ COGS Studio uses WooCommerce's native Cost of Goods Sold API as its source of tr
 WooCommerce 10.3 or newer is required and the WooCommerce Cost of Goods Sold feature must be enabled.
 
 == Changelog ==
+
+= 2.3.0 =
+* Aligned the COGS Studio admin UI with the shared WC Analytics Bridge design system.
+* Added the shared dark violet application header, version/readiness pills, violet navigation and canonical card styling.
+* Standardized dashboard KPIs, filters, tables, bulk controls, system cards and form focus states to the shared plugin motif.
+* Added icons to the COGS Studio section navigation.
+* No COGS calculations, audit, CSV, order profitability or product-cost behavior changes.
 
 = 2.2.0 =
 * Added 7/30/90-day and custom dashboard profitability ranges.
