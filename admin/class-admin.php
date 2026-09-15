@@ -131,13 +131,19 @@ final class Admin {
 		$status = $this->compatibility->status();
 		?>
 		<div class="wrap cogs-studio-wrap">
-			<div class="cogs-studio-header">
-				<div>
+			<header class="cogs-studio-header cogs-studio-app-header">
+				<div class="cogs-studio-header-copy">
+					<span class="cogs-studio-eyebrow"><?php esc_html_e( 'WooCommerce profitability control center', 'cogs-studio-for-woocommerce' ); ?></span>
 					<h1><?php esc_html_e( 'COGS Studio', 'cogs-studio-for-woocommerce' ); ?></h1>
-					<p><?php esc_html_e( 'Native WooCommerce cost management and profitability.', 'cogs-studio-for-woocommerce' ); ?></p>
+					<p><?php esc_html_e( 'Native WooCommerce cost management, inventory valuation and profitability.', 'cogs-studio-for-woocommerce' ); ?></p>
 				</div>
-				<span class="cogs-studio-version">v<?php echo esc_html( COGS_STUDIO_VERSION ); ?></span>
-			</div>
+				<div class="cogs-studio-header-meta">
+					<span class="cogs-studio-version">v<?php echo esc_html( COGS_STUDIO_VERSION ); ?></span>
+					<span class="cogs-studio-readiness <?php echo $status['cogs_enabled'] ? 'is-ready' : 'is-action'; ?>">
+						<?php echo esc_html( $status['cogs_enabled'] ? __( 'COGS ready', 'cogs-studio-for-woocommerce' ) : __( 'Setup required', 'cogs-studio-for-woocommerce' ) ); ?>
+					</span>
+				</div>
+			</header>
 
 			<?php if ( ! $status['cogs_enabled'] ) : ?>
 				<div class="cogs-studio-inline-notice cogs-studio-inline-notice--warning">
@@ -147,11 +153,11 @@ final class Admin {
 			<?php endif; ?>
 
 			<nav class="cogs-studio-tabs" aria-label="<?php esc_attr_e( 'COGS Studio sections', 'cogs-studio-for-woocommerce' ); ?>">
-				<button type="button" class="cogs-studio-tab is-active" data-tab="dashboard"><?php esc_html_e( 'Dashboard', 'cogs-studio-for-woocommerce' ); ?></button>
-				<button type="button" class="cogs-studio-tab" data-tab="products"><?php esc_html_e( 'Products', 'cogs-studio-for-woocommerce' ); ?></button>
-				<button type="button" class="cogs-studio-tab" data-tab="orders"><?php esc_html_e( 'Orders', 'cogs-studio-for-woocommerce' ); ?></button>
-				<button type="button" class="cogs-studio-tab" data-tab="history"><?php esc_html_e( 'Cost History', 'cogs-studio-for-woocommerce' ); ?></button>
-				<button type="button" class="cogs-studio-tab" data-tab="settings"><?php esc_html_e( 'System', 'cogs-studio-for-woocommerce' ); ?></button>
+				<button type="button" class="cogs-studio-tab is-active" data-tab="dashboard"><span class="dashicons dashicons-chart-area" aria-hidden="true"></span><?php esc_html_e( 'Dashboard', 'cogs-studio-for-woocommerce' ); ?></button>
+				<button type="button" class="cogs-studio-tab" data-tab="products"><span class="dashicons dashicons-products" aria-hidden="true"></span><?php esc_html_e( 'Products', 'cogs-studio-for-woocommerce' ); ?></button>
+				<button type="button" class="cogs-studio-tab" data-tab="orders"><span class="dashicons dashicons-list-view" aria-hidden="true"></span><?php esc_html_e( 'Orders', 'cogs-studio-for-woocommerce' ); ?></button>
+				<button type="button" class="cogs-studio-tab" data-tab="history"><span class="dashicons dashicons-backup" aria-hidden="true"></span><?php esc_html_e( 'Cost History', 'cogs-studio-for-woocommerce' ); ?></button>
+				<button type="button" class="cogs-studio-tab" data-tab="settings"><span class="dashicons dashicons-admin-generic" aria-hidden="true"></span><?php esc_html_e( 'System', 'cogs-studio-for-woocommerce' ); ?></button>
 			</nav>
 
 			<section class="cogs-studio-panel is-active" data-panel="dashboard"><div class="cogs-studio-loading"><?php esc_html_e( 'Loading dashboard…', 'cogs-studio-for-woocommerce' ); ?></div></section>
