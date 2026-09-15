@@ -1,10 +1,10 @@
-=== COGS Studio for WooCommerce ===
+=== SG Cost Manager ===
 Contributors: spiros-g
 Tags: woocommerce, cogs, cost of goods, profit, inventory
 Requires at least: 6.7
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 2.3.0
+Stable tag: 2.3.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -12,11 +12,17 @@ Native WooCommerce COGS management, profitability, stock valuation, and cost aud
 
 == Description ==
 
-COGS Studio uses WooCommerce's native Cost of Goods Sold API as its source of truth and adds a management dashboard, inline AJAX cost editing, order profitability, stock valuation, and full native COGS change history.
+SG Cost Manager uses WooCommerce's native Cost of Goods Sold API as its source of truth and adds a management dashboard, inline AJAX cost editing, order profitability, stock valuation, and full native COGS change history.
 
 WooCommerce 10.3 or newer is required and the WooCommerce Cost of Goods Sold feature must be enabled.
 
 == Changelog ==
+
+= 2.3.1 =
+* Standardized public branding as SG Cost Manager.
+* Updated canonical GitHub identity to spiros-g/sg-cost-manager and added Update URI metadata.
+* Preserved the cogs-studio-for-woocommerce install folder, namespace, text domain and native WooCommerce COGS data contracts.
+* Switched releases to the common SG Plugins tag-driven workflow.
 
 = 2.3.0 =
 * Aligned the COGS Studio admin UI with the shared WC Analytics Bridge design system.
