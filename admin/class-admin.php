@@ -47,8 +47,8 @@ final class Admin {
 	public function register_menu(): void {
 		$this->hook_suffix = (string) add_submenu_page(
 			'woocommerce',
-			__( 'COGS Studio', 'cogs-studio-for-woocommerce' ),
-			__( 'COGS Studio', 'cogs-studio-for-woocommerce' ),
+			__( 'SG Cost Manager', 'cogs-studio-for-woocommerce' ),
+			__( 'SG Cost Manager', 'cogs-studio-for-woocommerce' ),
 			'manage_woocommerce',
 			'cogs-studio',
 			array( $this, 'render_page' )
@@ -94,7 +94,7 @@ final class Admin {
 
 	public function plugin_action_links( array $links ): array {
 		$url = admin_url( 'admin.php?page=cogs-studio' );
-		array_unshift( $links, '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Open COGS Studio', 'cogs-studio-for-woocommerce' ) . '</a>' );
+		array_unshift( $links, '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Open SG Cost Manager', 'cogs-studio-for-woocommerce' ) . '</a>' );
 		return $links;
 	}
 
@@ -106,20 +106,20 @@ final class Admin {
 		$status = $this->compatibility->status();
 
 		if ( ! $status['woocommerce_active'] ) {
-			echo '<div class="notice notice-error"><p><strong>COGS Studio:</strong> ' . esc_html__( 'WooCommerce must be active.', 'cogs-studio-for-woocommerce' ) . '</p></div>';
+			echo '<div class="notice notice-error"><p><strong>SG Cost Manager:</strong> ' . esc_html__( 'WooCommerce must be active.', 'cogs-studio-for-woocommerce' ) . '</p></div>';
 			return;
 		}
 
 		if ( ! $status['wc_supported'] ) {
 			/* translators: %s: minimum supported WooCommerce version. */
 			$message = sprintf( __( 'WooCommerce %s or newer is required.', 'cogs-studio-for-woocommerce' ), Compatibility::MIN_WC_VERSION );
-			echo '<div class="notice notice-error"><p><strong>COGS Studio:</strong> ' . esc_html( $message ) . '</p></div>';
+			echo '<div class="notice notice-error"><p><strong>SG Cost Manager:</strong> ' . esc_html( $message ) . '</p></div>';
 			return;
 		}
 
 		if ( ! $status['cogs_enabled'] ) {
 			$url = admin_url( 'admin.php?page=wc-settings&tab=advanced' );
-			echo '<div class="notice notice-warning"><p><strong>COGS Studio:</strong> ' . esc_html__( 'Enable WooCommerce Cost of Goods Sold under WooCommerce → Settings → Advanced → Features.', 'cogs-studio-for-woocommerce' ) . ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Open settings', 'cogs-studio-for-woocommerce' ) . '</a></p></div>';
+			echo '<div class="notice notice-warning"><p><strong>SG Cost Manager:</strong> ' . esc_html__( 'Enable WooCommerce Cost of Goods Sold under WooCommerce → Settings → Advanced → Features.', 'cogs-studio-for-woocommerce' ) . ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Open settings', 'cogs-studio-for-woocommerce' ) . '</a></p></div>';
 		}
 	}
 
@@ -134,7 +134,7 @@ final class Admin {
 			<header class="cogs-studio-header cogs-studio-app-header">
 				<div class="cogs-studio-header-copy">
 					<span class="cogs-studio-eyebrow"><?php esc_html_e( 'WooCommerce profitability control center', 'cogs-studio-for-woocommerce' ); ?></span>
-					<h1><?php esc_html_e( 'COGS Studio', 'cogs-studio-for-woocommerce' ); ?></h1>
+					<h1><?php esc_html_e( 'SG Cost Manager', 'cogs-studio-for-woocommerce' ); ?></h1>
 					<p><?php esc_html_e( 'Native WooCommerce cost management, inventory valuation and profitability.', 'cogs-studio-for-woocommerce' ); ?></p>
 				</div>
 				<div class="cogs-studio-header-meta">
@@ -152,7 +152,7 @@ final class Admin {
 				</div>
 			<?php endif; ?>
 
-			<nav class="cogs-studio-tabs" aria-label="<?php esc_attr_e( 'COGS Studio sections', 'cogs-studio-for-woocommerce' ); ?>">
+			<nav class="cogs-studio-tabs" aria-label="<?php esc_attr_e( 'SG Cost Manager sections', 'cogs-studio-for-woocommerce' ); ?>">
 				<button type="button" class="cogs-studio-tab is-active" data-tab="dashboard"><span class="dashicons dashicons-chart-area" aria-hidden="true"></span><?php esc_html_e( 'Dashboard', 'cogs-studio-for-woocommerce' ); ?></button>
 				<button type="button" class="cogs-studio-tab" data-tab="products"><span class="dashicons dashicons-products" aria-hidden="true"></span><?php esc_html_e( 'Products', 'cogs-studio-for-woocommerce' ); ?></button>
 				<button type="button" class="cogs-studio-tab" data-tab="orders"><span class="dashicons dashicons-list-view" aria-hidden="true"></span><?php esc_html_e( 'Orders', 'cogs-studio-for-woocommerce' ); ?></button>
