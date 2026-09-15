@@ -58,9 +58,9 @@ jobs:
           cd /tmp/cogs-studio-plugin-check
           wp core download --quiet
           wp config create --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --skip-check
-          wp core install --url=http://localhost --title="COGS Studio Plugin Check" --admin_user=admin --admin_password=password --admin_email=ci@example.com --skip-email
+          wp core install --url=http://localhost --title="SG Cost Manager Plugin Check" --admin_user=admin --admin_password=password --admin_email=ci@example.com --skip-email
           wp plugin install plugin-check --activate
-      - name: Install COGS Studio source
+      - name: Install SG Cost Manager source
         run: |
           cd /tmp/cogs-studio-plugin-check
           mkdir -p wp-content/plugins/cogs-studio-for-woocommerce
@@ -72,10 +72,16 @@ jobs:
       - name: Run WordPress Plugin Check
         run: |
           cd /tmp/cogs-studio-plugin-check
-          OUTPUT="$(wp plugin check cogs-studio-for-woocommerce 2>&1)"
+          OUTPUT="$(wp plugin check cogs-studio-for-woocommerce 2>&1 || true)"
           printf '%s\n' "$OUTPUT"
-          if printf '%s\n' "$OUTPUT" | grep -E 'ERROR|WARNING' >/dev/null; then
-            echo "Plugin Check reported ERROR or WARNING findings."
+
+          # SG plugins are privately distributed through GitHub, so Update URI is
+          # intentional. Plugin Check flags it only because WordPress.org-hosted
+          # plugins must not ship a custom updater.
+          FILTERED_OUTPUT="$(printf '%s\n' "$OUTPUT" | grep -v 'plugin_updater_detected' || true)"
+
+          if printf '%s\n' "$FILTERED_OUTPUT" | grep -E 'ERROR|WARNING' >/dev/null; then
+            echo "Plugin Check reported ERROR or WARNING findings other than the intentional private-distribution Update URI."
             exit 1
           fi
 
@@ -126,7 +132,7 @@ jobs:
             wp core download --version="${{ matrix.wordpress }}" --force --quiet
           fi
           wp config create --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --skip-check
-          wp core install --url=http://localhost --title="COGS Studio CI" --admin_user=admin --admin_password=password --admin_email=ci@example.com --skip-email
+          wp core install --url=http://localhost --title="SG Cost Manager CI" --admin_user=admin --admin_password=password --admin_email=ci@example.com --skip-email
       - name: Install WooCommerce
         run: |
           cd /tmp/cogs-studio-wp
@@ -137,7 +143,7 @@ jobs:
           fi
           wp option update woocommerce_feature_cost_of_goods_sold_enabled yes
           wp option update woocommerce_custom_orders_table_enabled "${{ matrix.hpos }}"
-      - name: Install COGS Studio
+      - name: Install SG Cost Manager
         run: |
           cd /tmp/cogs-studio-wp
           mkdir -p wp-content/plugins/cogs-studio-for-woocommerce
@@ -145,7 +151,7 @@ jobs:
             --exclude '.git' \
             --exclude 'dist'
           wp plugin activate cogs-studio-for-woocommerce
-      - name: Run COGS runtime smoke test
+      - name: Run Cost Manager runtime smoke test
         env:
           COGS_EXPECT_HPOS: ${{ matrix.hpos }}
         run: |
@@ -172,13 +178,13 @@ jobs:
             --exclude 'tests' \
             --exclude 'dist'
           cd dist
-          zip -qr "cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}.zip" cogs-studio-for-woocommerce
+          zip -qr "sg-cost-manager-v${{ steps.version.outputs.version }}.zip" cogs-studio-for-woocommerce
       - uses: actions/upload-artifact@v4
         with:
-          name: cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}
-          path: dist/cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}.zip
+          name: sg-cost-manager-v${{ steps.version.outputs.version }}
+          path: dist/sg-cost-manager-v${{ steps.version.outputs.version }}.zip
           if-no-files-found: error
       - name: Validate package identity
         run: |
-          unzip -l "dist/cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}.zip" | grep "cogs-studio-for-woocommerce/cogs-studio-for-woocommerce.php"
-          ! unzip -l "dist/cogs-studio-for-woocommerce-v${{ steps.version.outputs.version }}.zip" | grep -q "cost-of-goods.php"
+          unzip -l "dist/sg-cost-manager-v${{ steps.version.outputs.version }}.zip" | grep "cogs-studio-for-woocommerce/cogs-studio-for-woocommerce.php"
+          ! unzip -l "dist/sg-cost-manager-v${{ steps.version.outputs.version }}.zip" | grep -q "cost-of-goods.php"
